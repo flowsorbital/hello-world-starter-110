@@ -44,15 +44,38 @@ export type Database = {
         }
         Relationships: []
       }
+      campaign_contact: {
+        Row: {
+          campaign_id: string
+          contact_id: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          campaign_id: string
+          contact_id: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          campaign_id?: string
+          contact_id?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: []
+      }
       campaigns: {
         Row: {
           agent_id: string
           campaign_start: string
           created_at: string
+          elevenlabs_agent_id: string | null
           id: string
           launched_at: string | null
           name: string
           phone_number: string
+          phone_number_id: string | null
           start_date: string | null
           status: string
           updated_at: string
@@ -62,10 +85,12 @@ export type Database = {
           agent_id: string
           campaign_start?: string
           created_at?: string
+          elevenlabs_agent_id?: string | null
           id?: string
           launched_at?: string | null
           name: string
           phone_number: string
+          phone_number_id?: string | null
           start_date?: string | null
           status?: string
           updated_at?: string
@@ -75,10 +100,12 @@ export type Database = {
           agent_id?: string
           campaign_start?: string
           created_at?: string
+          elevenlabs_agent_id?: string | null
           id?: string
           launched_at?: string | null
           name?: string
           phone_number?: string
+          phone_number_id?: string | null
           start_date?: string | null
           status?: string
           updated_at?: string

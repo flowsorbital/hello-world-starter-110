@@ -7,12 +7,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ContactsModal } from "@/components/contacts/ContactsModal";
-import { ChevronLeft, ChevronRight, Upload, Play, CalendarIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, Upload, Play, CalendarIcon, Clock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useProfile } from "@/hooks/useProfile";
 import { format } from "date-fns";
+import { Input } from "@/components/ui/input";
 
 const steps = [
   "Select Agent",
@@ -35,6 +36,16 @@ interface Contact {
   [key: string]: string;
 }
 
+interface PhoneNumber {
+  phone_number: string;
+  label: string;
+  supports_inbound: boolean;
+  supports_outbound: boolean;
+  phone_number_id: string;
+  assigned_agent: string | null;
+  provider: string;
+}
+
 export default function RunCampaign() {
   const [currentStep, setCurrentStep] = useState(0);
   const [selectedAgent, setSelectedAgent] = useState('');
@@ -44,9 +55,13 @@ export default function RunCampaign() {
   const [campaignStart, setCampaignStart] = useState('Immediate');
   const [startDate, setStartDate] = useState<Date>();
   const [selectedPhone, setSelectedPhone] = useState('');
+  const [selectedPhoneId, setSelectedPhoneId] = useState('');
+  const [phoneNumbers, setPhoneNumbers] = useState<PhoneNumber[]>([]);
+  const [startTime, setStartTime] = useState('');
   const [isContactsModalOpen, setIsContactsModalOpen] = useState(false);
   const [isLaunched, setIsLaunched] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [savedCampaignId, setSavedCampaignId] = useState<string | null>(null);
   
   const { user } = useAuth();
   const { profile } = useProfile();
@@ -55,6 +70,7 @@ export default function RunCampaign() {
   useEffect(() => {
     if (user) {
       fetchAgents();
+      fetchPhoneNumbers();
     }
   }, [user]);
 
@@ -78,7 +94,28 @@ export default function RunCampaign() {
     }
   };
 
-  const nextStep = () => {
+  const fetchPhoneNumbers = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('get-phone-numbers');
+      
+      if (error) throw error;
+      setPhoneNumbers(data || []);
+    } catch (error: any) {
+      console.error('Error fetching phone numbers:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load phone numbers",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const nextStep = async () => {
+    if (currentStep === 2) {
+      // Save campaign details when moving from Campaign Settings step
+      await saveCampaignDetails();
+    }
+    
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
     }
@@ -149,56 +186,87 @@ export default function RunCampaign() {
   };
 
   const handleManualContacts = async (newContacts: Contact[]) => {
-    if (!user) return;
-
-    try {
-      const { error } = await supabase
-        .from('contacts')
-        .insert(
-          newContacts.map(contact => ({
-            user_id: user.id,
-            name: contact.name,
-            phone: contact.phone,
-            additional_fields: Object.fromEntries(
-              Object.entries(contact).filter(([key]) => !['id', 'name', 'phone'].includes(key))
-            ),
-          }))
-        );
-
-      if (error) throw error;
-
-      setContacts([...contacts, ...newContacts]);
-      toast({
-        title: "Success",
-        description: `${newContacts.length} contacts added successfully`,
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: "Failed to save contacts",
-        variant: "destructive",
-      });
-    }
+    setContacts([...contacts, ...newContacts]);
   };
 
-  const handleLaunchCampaign = async () => {
+  const saveCampaignDetails = async () => {
     if (!user || !selectedAgent) return;
 
     try {
-      const { error } = await supabase
+      const startDateTime = campaignStart === 'Custom' && startDate && startTime 
+        ? new Date(`${startDate.toISOString().split('T')[0]}T${startTime}:00`)
+        : null;
+
+      const { data, error } = await supabase
         .from('campaigns')
         .insert({
           user_id: user.id,
           agent_id: selectedAgent,
           name: campaignName,
           campaign_start: campaignStart,
-          start_date: campaignStart === 'Custom' ? startDate?.toISOString() : null,
+          start_date: startDateTime?.toISOString(),
           phone_number: selectedPhone,
-          status: 'Launched',
-          launched_at: new Date().toISOString(),
-        });
+          phone_number_id: selectedPhoneId,
+          elevenlabs_agent_id: selectedAgent,
+          status: 'Draft',
+        })
+        .select()
+        .single();
 
       if (error) throw error;
+      
+      setSavedCampaignId(data.id);
+      
+      // Link existing contacts to campaign
+      if (contacts.length > 0) {
+        const campaignContacts = contacts.map(contact => ({
+          campaign_id: data.id,
+          contact_id: contact.id
+        }));
+
+        await supabase
+          .from('campaign_contact')
+          .insert(campaignContacts);
+      }
+
+      toast({
+        title: "Success",
+        description: "Campaign details saved successfully",
+      });
+    } catch (error: any) {
+      console.error('Error saving campaign:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save campaign details",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleLaunchCampaign = async () => {
+    if (!user || !selectedAgent || !savedCampaignId) return;
+
+    try {
+      const startDateTime = campaignStart === 'Custom' && startDate && startTime 
+        ? new Date(`${startDate.toISOString().split('T')[0]}T${startTime}:00`)
+        : new Date();
+
+      const scheduledTimeUnix = Math.floor(startDateTime.getTime() / 1000);
+      const recipients = contacts.map(contact => contact.phone);
+
+      // Launch campaign via ElevenLabs API
+      const { data: launchResult, error: launchError } = await supabase.functions.invoke('launch-campaign', {
+        body: {
+          campaignId: savedCampaignId,
+          callName: campaignName,
+          agentId: selectedAgent,
+          phoneNumberId: selectedPhoneId,
+          scheduledTimeUnix,
+          recipients
+        }
+      });
+
+      if (launchError) throw launchError;
 
       setIsLaunched(true);
       toast({
@@ -206,6 +274,7 @@ export default function RunCampaign() {
         description: "Your campaign has been successfully launched.",
       });
     } catch (error: any) {
+      console.error('Error launching campaign:', error);
       toast({
         title: "Error",
         description: "Failed to launch campaign",
@@ -350,38 +419,61 @@ export default function RunCampaign() {
                       </SelectContent>
                     </Select>
                     {campaignStart === 'Custom' && (
-                      <Popover open={showCalendar} onOpenChange={setShowCalendar}>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" className="w-full mt-2 justify-start text-left font-normal">
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {startDate ? format(startDate, "PPP") : "Pick a date"}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                          <Calendar
-                            mode="single"
-                            selected={startDate}
-                            onSelect={(date) => {
-                              setStartDate(date);
-                              setShowCalendar(false);
-                            }}
-                            initialFocus
+                      <div className="space-y-2">
+                        <Popover open={showCalendar} onOpenChange={setShowCalendar}>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-full mt-2 justify-start text-left font-normal">
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {startDate ? format(startDate, "PPP") : "Pick a date"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0">
+                            <Calendar
+                              mode="single"
+                              selected={startDate}
+                              onSelect={(date) => {
+                                setStartDate(date);
+                                setShowCalendar(false);
+                              }}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-4 w-4 text-muted-foreground" />
+                          <Input
+                            type="time"
+                            value={startTime}
+                            onChange={(e) => setStartTime(e.target.value)}
+                            className="flex-1"
                           />
-                        </PopoverContent>
-                      </Popover>
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium mb-2">Select Phone</label>
-                    <input
-                      type="tel"
-                      value={selectedPhone}
-                      onChange={(e) => setSelectedPhone(e.target.value)}
-                      placeholder={profile?.phone || "Enter phone number"}
-                      className="w-full p-3 border border-input rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
-                    />
+                    <label className="block text-sm font-medium mb-2">Campaign Phone Number</label>
+                    <Select 
+                      value={selectedPhoneId} 
+                      onValueChange={(value) => {
+                        setSelectedPhoneId(value);
+                        const selectedPhoneNumber = phoneNumbers.find(p => p.phone_number_id === value);
+                        setSelectedPhone(selectedPhoneNumber?.phone_number || '');
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a phone number" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {phoneNumbers.map((phoneNumber) => (
+                          <SelectItem key={phoneNumber.phone_number_id} value={phoneNumber.phone_number_id}>
+                            {phoneNumber.phone_number} ({phoneNumber.label})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </div>
@@ -411,7 +503,7 @@ export default function RunCampaign() {
                       <span className="text-muted-foreground">Start:</span>
                       <p className="font-medium">
                         {campaignStart === 'Custom' && startDate 
-                          ? format(startDate, "PPP") 
+                          ? `${format(startDate, "PPP")} ${startTime || ''}`.trim()
                           : campaignStart
                         }
                       </p>
@@ -430,7 +522,7 @@ export default function RunCampaign() {
                   <Button 
                     onClick={handleLaunchCampaign}
                     className="w-full h-12 text-lg flex items-center justify-center gap-3"
-                    disabled={!selectedAgent || contacts.length === 0 || !campaignName}
+                    disabled={!selectedAgent || contacts.length === 0 || !campaignName || !savedCampaignId}
                   >
                     <Play className="h-5 w-5" />
                     Launch Campaign
@@ -462,7 +554,7 @@ export default function RunCampaign() {
             disabled={
               (currentStep === 0 && !selectedAgent) ||
               (currentStep === 1 && contacts.length === 0) ||
-              (currentStep === 2 && !campaignName)
+              (currentStep === 2 && (!campaignName || !selectedPhoneId))
             }
           >
             Next
@@ -475,6 +567,7 @@ export default function RunCampaign() {
         isOpen={isContactsModalOpen}
         onClose={() => setIsContactsModalOpen(false)}
         onSave={handleManualContacts}
+        campaignId={savedCampaignId || undefined}
       />
     </div>
   );

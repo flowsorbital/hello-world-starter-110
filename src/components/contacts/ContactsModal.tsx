@@ -3,6 +3,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Trash2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 interface Contact {
   id: string;
@@ -15,14 +18,18 @@ interface ContactsModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (contacts: Contact[]) => void;
+  campaignId?: string;
 }
 
-export function ContactsModal({ isOpen, onClose, onSave }: ContactsModalProps) {
+export function ContactsModal({ isOpen, onClose, onSave, campaignId }: ContactsModalProps) {
   const [contacts, setContacts] = useState<Contact[]>([
     { id: '1', name: '', phone: '' }
   ]);
   const [customFields, setCustomFields] = useState<string[]>([]);
   const [newFieldName, setNewFieldName] = useState('');
+  
+  const { user } = useAuth();
+  const { toast } = useToast();
 
   const addContact = () => {
     const newContact: Contact = { 
@@ -62,11 +69,94 @@ export function ContactsModal({ isOpen, onClose, onSave }: ContactsModalProps) {
     }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const validContacts = contacts.filter(contact => contact.name && contact.phone);
-    if (validContacts.length > 0) {
-      onSave(validContacts);
+    if (validContacts.length === 0 || !user) return;
+
+    try {
+      // Check for existing contacts and update/insert accordingly
+      const processedContacts = [];
+      
+      for (const contact of validContacts) {
+        // Check if contact with this phone number already exists
+        const { data: existingContact } = await supabase
+          .from('contacts')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('phone', contact.phone)
+          .maybeSingle();
+
+        if (existingContact) {
+          // Update existing contact
+          const { error: updateError } = await supabase
+            .from('contacts')
+            .update({
+              name: contact.name,
+              additional_fields: Object.fromEntries(
+                Object.entries(contact).filter(([key]) => !['id', 'name', 'phone'].includes(key))
+              ),
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', existingContact.id);
+
+          if (updateError) throw updateError;
+          processedContacts.push({ ...contact, id: existingContact.id });
+        } else {
+          // Insert new contact
+          const { data: newContact, error: insertError } = await supabase
+            .from('contacts')
+            .insert({
+              user_id: user.id,
+              name: contact.name,
+              phone: contact.phone,
+              additional_fields: Object.fromEntries(
+                Object.entries(contact).filter(([key]) => !['id', 'name', 'phone'].includes(key))
+              ),
+            })
+            .select()
+            .single();
+
+          if (insertError) throw insertError;
+          processedContacts.push({ ...contact, id: newContact.id });
+        }
+      }
+
+      // If campaignId is provided, link contacts to campaign
+      if (campaignId) {
+        for (const contact of processedContacts) {
+          // Check if relationship already exists
+          const { data: existingRelation } = await supabase
+            .from('campaign_contact')
+            .select('id')
+            .eq('campaign_id', campaignId)
+            .eq('contact_id', contact.id)
+            .maybeSingle();
+
+          if (!existingRelation) {
+            await supabase
+              .from('campaign_contact')
+              .insert({
+                campaign_id: campaignId,
+                contact_id: contact.id
+              });
+          }
+        }
+      }
+
+      onSave(processedContacts);
       onClose();
+      
+      toast({
+        title: "Success",
+        description: `${processedContacts.length} contacts processed successfully`,
+      });
+    } catch (error: any) {
+      console.error('Error saving contacts:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save contacts",
+        variant: "destructive",
+      });
     }
   };
 
