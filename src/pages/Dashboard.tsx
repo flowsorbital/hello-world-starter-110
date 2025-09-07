@@ -1,19 +1,57 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { KPICard } from "@/components/dashboard/KPICard";
-import { ActivityLog } from "@/components/dashboard/ActivityLog";
-import { Phone, Calendar, Users, HeadphonesIcon, Mic, BarChart3, TrendingUp, Target, Clock } from "lucide-react";
+import { Mic, Phone } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useProfile } from "@/hooks/useProfile";
+import { useDashboardData } from "@/hooks/useDashboardData";
+import { DashboardFilters } from "@/components/dashboard/DashboardFilters";
+import { DashboardMetrics } from "@/components/dashboard/DashboardMetrics";
+import { CampaignsList } from "@/components/dashboard/CampaignsList";
+import { CampaignDetails } from "@/components/dashboard/CampaignDetails";
+import { DateRange } from "react-day-picker";
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { profile } = useProfile();
+  const { metrics, campaigns, conversations, isLoading, fetchDashboardData, fetchCampaignDetails } = useDashboardData();
+  
+  const [selectedCampaign, setSelectedCampaign] = useState('all');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [selectedCampaignDetails, setSelectedCampaignDetails] = useState<string | null>(null);
+  const [campaignDetailsData, setCampaignDetailsData] = useState<any[]>([]);
 
   const getFirstName = () => {
     if (profile?.full_name) {
       return profile.full_name.split(' ')[0];
     }
     return 'User';
+  };
+
+  const handleCampaignChange = (campaignId: string) => {
+    setSelectedCampaign(campaignId);
+    fetchDashboardData(campaignId === 'all' ? undefined : campaignId, dateRange);
+  };
+
+  const handleDateRangeChange = (newDateRange: DateRange | undefined) => {
+    setDateRange(newDateRange);
+    fetchDashboardData(selectedCampaign === 'all' ? undefined : selectedCampaign, newDateRange);
+  };
+
+  const handleClearFilters = () => {
+    setSelectedCampaign('all');
+    setDateRange(undefined);
+    fetchDashboardData();
+  };
+
+  const handleViewDetails = async (campaignId: string) => {
+    const details = await fetchCampaignDetails(campaignId);
+    setCampaignDetailsData(details);
+    setSelectedCampaignDetails(campaignId);
+  };
+
+  const handleBackToCampaigns = () => {
+    setSelectedCampaignDetails(null);
+    setCampaignDetailsData([]);
   };
 
   return (
@@ -61,70 +99,35 @@ export default function Dashboard() {
         </Button>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <KPICard
-          title="Total Calls Made"
-          value="1,247"
-          icon={Phone}
-          trend={{ value: 12.5, isPositive: true }}
-        />
-        <KPICard
-          title="Appointments Scheduled"
-          value="156"
-          icon={Calendar}
-          trend={{ value: 8.2, isPositive: true }}
-        />
-        <KPICard
-          title="Leads Qualified"
-          value="89"
-          icon={Users}
-          trend={{ value: 15.3, isPositive: true }}
-        />
-        <KPICard
-          title="Issues Resolved"
-          value="234"
-          icon={HeadphonesIcon}
-          trend={{ value: -2.1, isPositive: false }}
-        />
-      </div>
+      {/* Dashboard Filters */}
+      <DashboardFilters
+        campaigns={campaigns.map(c => ({ id: c.id, name: c.name }))}
+        selectedCampaign={selectedCampaign}
+        dateRange={dateRange}
+        onCampaignChange={handleCampaignChange}
+        onDateRangeChange={handleDateRangeChange}
+        onClearFilters={handleClearFilters}
+      />
 
-      {/* Campaign Analytics Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-        <KPICard
-          title="Conversion Rate"
-          value="24.8%"
-          icon={TrendingUp}
-          trend={{ value: 5.2, isPositive: true }}
-        />
-        <KPICard
-          title="Avg Call Duration"
-          value="3m 42s"
-          icon={Clock}
-          trend={{ value: 12.3, isPositive: true }}
-        />
-        <KPICard
-          title="Success Rate"
-          value="89.4%"
-          icon={Target}
-          trend={{ value: 8.7, isPositive: true }}
-        />
-      </div>
+      {/* Dashboard Metrics */}
+      <DashboardMetrics metrics={metrics} isLoading={isLoading} />
 
-      {/* Activity Log */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <ActivityLog />
-        </div>
-        <div className="space-y-4">
-          <div className="bg-primary-light rounded-lg p-4 border border-primary/20">
-            <h4 className="font-semibold text-primary mb-2">💡 Quick Tip</h4>
-            <p className="text-sm text-primary/80">
-              Use our appointment scheduling agent to automatically book meetings with qualified leads.
-            </p>
-          </div>
-        </div>
-      </div>
+      {/* Campaign Details or Campaigns List */}
+      {selectedCampaignDetails ? (
+        <CampaignDetails
+          campaignId={selectedCampaignDetails}
+          campaignName={campaigns.find(c => c.id === selectedCampaignDetails)?.name || 'Campaign'}
+          conversations={campaignDetailsData}
+          onBack={handleBackToCampaigns}
+          isLoading={isLoading}
+        />
+      ) : (
+        <CampaignsList
+          campaigns={campaigns}
+          onViewDetails={handleViewDetails}
+          isLoading={isLoading}
+        />
+      )}
     </div>
   );
 }

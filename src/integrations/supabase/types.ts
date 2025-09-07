@@ -44,6 +44,68 @@ export type Database = {
         }
         Relationships: []
       }
+      batch_calls: {
+        Row: {
+          agent_id: string | null
+          batch_id: string
+          batch_name: string | null
+          campaign_id: string | null
+          created_at: string
+          created_at_unix: number | null
+          id: string
+          last_updated_at_unix: number | null
+          phone_number_id: string | null
+          scheduled_time_unix: number | null
+          status: string | null
+          total_calls_dispatched: number | null
+          total_calls_scheduled: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          agent_id?: string | null
+          batch_id: string
+          batch_name?: string | null
+          campaign_id?: string | null
+          created_at?: string
+          created_at_unix?: number | null
+          id?: string
+          last_updated_at_unix?: number | null
+          phone_number_id?: string | null
+          scheduled_time_unix?: number | null
+          status?: string | null
+          total_calls_dispatched?: number | null
+          total_calls_scheduled?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          agent_id?: string | null
+          batch_id?: string
+          batch_name?: string | null
+          campaign_id?: string | null
+          created_at?: string
+          created_at_unix?: number | null
+          id?: string
+          last_updated_at_unix?: number | null
+          phone_number_id?: string | null
+          scheduled_time_unix?: number | null
+          status?: string | null
+          total_calls_dispatched?: number | null
+          total_calls_scheduled?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "batch_calls_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       campaign_contact: {
         Row: {
           campaign_id: string
@@ -150,6 +212,83 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      conversations: {
+        Row: {
+          accepted_time_unix: number | null
+          agent_id: string | null
+          analysis: Json | null
+          call_duration_secs: number | null
+          call_successful: string | null
+          campaign_id: string | null
+          contact_name: string | null
+          conversation_id: string
+          conversation_summary: string | null
+          created_at: string
+          has_audio: boolean | null
+          id: string
+          metadata: Json | null
+          phone_number: string | null
+          start_time_unix: number | null
+          status: string | null
+          total_cost: number | null
+          transcript: Json | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          accepted_time_unix?: number | null
+          agent_id?: string | null
+          analysis?: Json | null
+          call_duration_secs?: number | null
+          call_successful?: string | null
+          campaign_id?: string | null
+          contact_name?: string | null
+          conversation_id: string
+          conversation_summary?: string | null
+          created_at?: string
+          has_audio?: boolean | null
+          id?: string
+          metadata?: Json | null
+          phone_number?: string | null
+          start_time_unix?: number | null
+          status?: string | null
+          total_cost?: number | null
+          transcript?: Json | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          accepted_time_unix?: number | null
+          agent_id?: string | null
+          analysis?: Json | null
+          call_duration_secs?: number | null
+          call_successful?: string | null
+          campaign_id?: string | null
+          contact_name?: string | null
+          conversation_id?: string
+          conversation_summary?: string | null
+          created_at?: string
+          has_audio?: boolean | null
+          id?: string
+          metadata?: Json | null
+          phone_number?: string | null
+          start_time_unix?: number | null
+          status?: string | null
+          total_cost?: number | null
+          transcript?: Json | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
