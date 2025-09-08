@@ -398,17 +398,18 @@ export default function RunCampaign() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium mb-2">Campaign Name</label>
+                    <label className="block text-sm font-medium mb-2">Campaign Name *</label>
                     <input 
                       type="text" 
                       value={campaignName}
                       onChange={(e) => setCampaignName(e.target.value)}
                       placeholder="e.g., Q1 Lead Generation"
                       className="w-full p-3 border border-input rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
+                      required
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-2">Campaign Start</label>
+                    <label className="block text-sm font-medium mb-2">Campaign Start *</label>
                     <Select value={campaignStart} onValueChange={setCampaignStart}>
                       <SelectTrigger>
                         <SelectValue />
@@ -454,7 +455,7 @@ export default function RunCampaign() {
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium mb-2">Campaign Phone Number</label>
+                    <label className="block text-sm font-medium mb-2">Campaign Phone Number *</label>
                     <Select 
                       value={selectedPhoneId} 
                       onValueChange={(value) => {

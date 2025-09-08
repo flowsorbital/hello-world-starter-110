@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,14 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+
+// Cal.com types
+declare global {
+  interface Window {
+    Cal?: any;
+  }
+}
 
 const Homepage = () => {
   const navigate = useNavigate();
@@ -38,12 +46,43 @@ const Homepage = () => {
 
   const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement contact form submission to Supabase
-    toast({
-      title: "Message sent!",
-      description: "We'll get back to you within 24 hours.",
-    });
-    setContactForm({ fullName: "", email: "", company: "", reason: "", message: "" });
+    
+    if (!contactForm.fullName || !contactForm.email || !contactForm.company || !contactForm.reason || !contactForm.message) {
+      toast({
+        title: "All fields required",
+        description: "Please fill in all required fields.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      // Save to Supabase
+      const { error } = await supabase
+        .from('contact_messages')
+        .insert({
+          full_name: contactForm.fullName,
+          email: contactForm.email,
+          company: contactForm.company,
+          reason: contactForm.reason,
+          message: contactForm.message
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Message sent!",
+        description: "We'll get back to you within 24 hours.",
+      });
+      setContactForm({ fullName: "", email: "", company: "", reason: "", message: "" });
+    } catch (error: any) {
+      console.error('Error saving contact message:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send message. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleDemoBooking = async () => {
@@ -70,6 +109,53 @@ const Homepage = () => {
     document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth" });
   };
 
+  // Initialize Cal.com when component mounts
+  useEffect(() => {
+    // Cal.com inline embed script
+    const calScript = `
+      (function (C, A, L) { 
+        let p = function (a, ar) { a.q.push(ar); }; 
+        let d = C.document; 
+        C.Cal = C.Cal || function () { 
+          let cal = C.Cal; 
+          let ar = arguments; 
+          if (!cal.loaded) { 
+            cal.ns = {}; 
+            cal.q = cal.q || []; 
+            d.head.appendChild(d.createElement("script")).src = A; 
+            cal.loaded = true; 
+          } 
+          if (ar[0] === L) { 
+            const api = function () { p(api, arguments); }; 
+            const namespace = ar[1]; 
+            api.q = api.q || []; 
+            if(typeof namespace === "string"){
+              cal.ns[namespace] = cal.ns[namespace] || api;
+              p(cal.ns[namespace], ar);
+              p(cal, ["initNamespace", namespace]);
+            } else p(cal, ar); 
+            return;
+          } 
+          p(cal, ar); 
+        }; 
+      })(window, "https://app.cal.com/embed/embed.js", "init");
+      
+      Cal("init", "orbital-flows/30min", {origin:"https://cal.com"});
+      Cal.ns["orbital-flows/30min"]("ui", {"hideEventTypeDetails":false,"layout":"month_view"});
+    `;
+
+    // Execute the script
+    const scriptElement = document.createElement('script');
+    scriptElement.innerHTML = calScript;
+    document.head.appendChild(scriptElement);
+
+    return () => {
+      if (document.head.contains(scriptElement)) {
+        document.head.removeChild(scriptElement);
+      }
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header Navigation */}
@@ -81,7 +167,7 @@ const Homepage = () => {
                 onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
                 className="text-2xl font-bold bg-gradient-brand bg-clip-text text-transparent hover:opacity-80 transition-opacity"
               >
-                OrbitalConnect AI
+                 Orbital Flows
               </button>
             </div>
             
@@ -136,21 +222,16 @@ const Homepage = () => {
             Create Voice Agents in minutes to book appointments, qualify leads, manage renewals and support customers.
           </p>
           <div className="flex justify-center">
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button size="lg" className="bg-primary hover:bg-primary-hover text-lg px-8 py-4">
-                  Book a Demo
-                  <ChevronRight className="ml-2 h-5 w-5" />
-                </Button>
-              </DialogTrigger>
-              <BookDemoModal 
-                selectedDate={selectedDate}
-                setSelectedDate={setSelectedDate}
-                demoForm={demoForm}
-                setDemoForm={setDemoForm}
-                onBookDemo={handleDemoBooking}
-              />
-            </Dialog>
+            <Button 
+              size="lg" 
+              className="bg-primary hover:bg-primary-hover text-lg px-8 py-4"
+              data-cal-link="orbital-flows/30min"
+              data-cal-namespace="orbital-flows/30min"
+              data-cal-config='{"layout":"month_view"}'
+            >
+              Book a Demo
+              <ChevronRight className="ml-2 h-5 w-5" />
+            </Button>
           </div>
           
           {/* Hero Visual */}
@@ -220,21 +301,16 @@ const Homepage = () => {
           </div>
 
           <div className="text-center mt-12">
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button size="lg" className="bg-primary hover:bg-primary-hover">
-                  Book a Demo
-                  <ChevronRight className="ml-2 h-5 w-5" />
-                </Button>
-              </DialogTrigger>
-              <BookDemoModal 
-                selectedDate={selectedDate}
-                setSelectedDate={setSelectedDate}
-                demoForm={demoForm}
-                setDemoForm={setDemoForm}
-                onBookDemo={handleDemoBooking}
-              />
-            </Dialog>
+            <Button 
+              size="lg" 
+              className="bg-primary hover:bg-primary-hover"
+              data-cal-link="orbital-flows/30min"
+              data-cal-namespace="orbital-flows/30min"
+              data-cal-config='{"layout":"month_view"}'
+            >
+              Book a Demo
+              <ChevronRight className="ml-2 h-5 w-5" />
+            </Button>
           </div>
         </div>
       </section>
@@ -251,40 +327,37 @@ const Homepage = () => {
           <div className="overflow-hidden mb-12">
             <div className="flex animate-scroll">
               {[...integrationLogos, ...integrationLogos].map((logo, index) => (
-                <div key={index} className="flex items-center justify-center min-w-[200px] mx-8">
-                  <img 
-                    src={`https://logo.clearbit.com/${logo.domain}`} 
-                    alt={logo.name}
-                    className="h-12 w-auto grayscale hover:grayscale-0 transition-all duration-300"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                      const parent = target.parentElement;
-                      if (parent) {
-                        parent.innerHTML = `<span class="text-lg font-semibold text-muted-foreground">${logo.name}</span>`;
-                      }
-                    }}
-                  />
+                <div key={index} className="flex items-center justify-center min-w-[200px] mx-8 hover:scale-105 transition-transform">
+                  <div className="flex items-center gap-2">
+                    <img 
+                      src={`https://logo.clearbit.com/${logo.domain}`} 
+                      alt={logo.name}
+                      className="h-8 w-auto filter"
+                      style={{ filter: `drop-shadow(0 0 5px ${logo.color})` }}
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                      }}
+                    />
+                    <span className="text-sm font-semibold" style={{ color: logo.color }}>
+                      {logo.name}
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
 
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button size="lg" className="bg-primary hover:bg-primary-hover">
-                Book a Demo
-                <ChevronRight className="ml-2 h-5 w-5" />
-              </Button>
-            </DialogTrigger>
-            <BookDemoModal 
-              selectedDate={selectedDate}
-              setSelectedDate={setSelectedDate}
-              demoForm={demoForm}
-              setDemoForm={setDemoForm}
-              onBookDemo={handleDemoBooking}
-            />
-          </Dialog>
+          <Button 
+            size="lg" 
+            className="bg-primary hover:bg-primary-hover"
+            data-cal-link="orbital-flows/30min"
+            data-cal-namespace="orbital-flows/30min"
+            data-cal-config='{"layout":"month_view"}'
+          >
+            Book a Demo
+            <ChevronRight className="ml-2 h-5 w-5" />
+          </Button>
         </div>
       </section>
 
@@ -301,7 +374,7 @@ const Homepage = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             <PricingCard
               name="Starter"
-              price="$50"
+              price="₹4,000"
               period="/mo"
               features={[
                 "250 minutes",
@@ -312,7 +385,7 @@ const Homepage = () => {
             />
             <PricingCard
               name="Growth"
-              price="$150"
+              price="₹12,000"
               period="/mo"
               features={[
                 "800 minutes",
@@ -324,7 +397,7 @@ const Homepage = () => {
             />
             <PricingCard
               name="Pro"
-              price="$400"
+              price="₹32,000"
               period="/mo"
               features={[
                 "2200 minutes",
@@ -354,7 +427,7 @@ const Homepage = () => {
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold mb-6">Frequently Asked Questions</h2>
             <p className="text-xl text-muted-foreground">
-              Everything you need to know about OrbitalConnect AI
+              Everything you need to know about Orbital Flows
             </p>
           </div>
 
@@ -372,28 +445,23 @@ const Homepage = () => {
           </Accordion>
 
           <div className="text-center">
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button size="lg" className="bg-primary hover:bg-primary-hover">
-                  Book a Demo
-                  <ChevronRight className="ml-2 h-5 w-5" />
-                </Button>
-              </DialogTrigger>
-              <BookDemoModal 
-                selectedDate={selectedDate}
-                setSelectedDate={setSelectedDate}
-                demoForm={demoForm}
-                setDemoForm={setDemoForm}
-                onBookDemo={handleDemoBooking}
-              />
-            </Dialog>
+            <Button 
+              size="lg" 
+              className="bg-primary hover:bg-primary-hover"
+              data-cal-link="orbital-flows/30min"
+              data-cal-namespace="orbital-flows/30min"
+              data-cal-config='{"layout":"month_view"}'
+            >
+              Book a Demo
+              <ChevronRight className="ml-2 h-5 w-5" />
+            </Button>
           </div>
         </div>
       </section>
 
       {/* Contact Us Section */}
       <section id="contact" className="py-20 px-4 sm:px-6 lg:px-8 bg-muted/30">
-        <div className="container mx-auto max-w-4xl">
+        <div className="container mx-auto max-w-6xl">
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold mb-6">Get in Touch</h2>
             <p className="text-xl text-muted-foreground">
@@ -402,10 +470,11 @@ const Homepage = () => {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+            {/* Contact Form */}
             <div>
               <form onSubmit={handleContactSubmit} className="space-y-6">
                 <div>
-                  <Label htmlFor="fullName">Full Name</Label>
+                  <Label htmlFor="fullName">Full Name *</Label>
                   <Input
                     id="fullName"
                     value={contactForm.fullName}
@@ -414,7 +483,7 @@ const Homepage = () => {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="email">Business Email</Label>
+                  <Label htmlFor="email">Business Email *</Label>
                   <Input
                     id="email"
                     type="email"
@@ -424,7 +493,7 @@ const Homepage = () => {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="company">Company Name</Label>
+                  <Label htmlFor="company">Company Name *</Label>
                   <Input
                     id="company"
                     value={contactForm.company}
@@ -433,8 +502,8 @@ const Homepage = () => {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="reason">Reason</Label>
-                  <Select value={contactForm.reason} onValueChange={(value) => setContactForm({...contactForm, reason: value})}>
+                  <Label htmlFor="reason">Reason *</Label>
+                  <Select value={contactForm.reason} onValueChange={(value) => setContactForm({...contactForm, reason: value})} required>
                     <SelectTrigger>
                       <SelectValue placeholder="Select a reason" />
                     </SelectTrigger>
@@ -469,12 +538,42 @@ const Homepage = () => {
                 <div className="space-y-4">
                   <div className="flex items-center">
                     <Mail className="h-5 w-5 text-primary mr-3" />
-                    <span>support@orbitalconnect.ai</span>
+                    <span>support@orbitalflows.com</span>
                   </div>
-                  <div className="flex items-center">
-                    <MapPin className="h-5 w-5 text-primary mr-3" />
-                    <span>San Francisco, CA</span>
-                  </div>
+                </div>
+              </div>
+
+              {/* Global Locations */}
+              <div>
+                <h3 className="text-2xl font-bold mb-4">Our Global Presence</h3>
+                <div className="grid grid-cols-1 gap-4">
+                  <Card className="p-4 hover:shadow-md transition-shadow">
+                    <div className="flex items-center">
+                      <MapPin className="h-5 w-5 text-primary mr-3" />
+                      <div>
+                        <div className="font-semibold">Delhi</div>
+                        <div className="text-sm text-muted-foreground">India Headquarters</div>
+                      </div>
+                    </div>
+                  </Card>
+                  <Card className="p-4 hover:shadow-md transition-shadow">
+                    <div className="flex items-center">
+                      <MapPin className="h-5 w-5 text-primary mr-3" />
+                      <div>
+                        <div className="font-semibold">San Francisco</div>
+                        <div className="text-sm text-muted-foreground">US Operations</div>
+                      </div>
+                    </div>
+                  </Card>
+                  <Card className="p-4 hover:shadow-md transition-shadow">
+                    <div className="flex items-center">
+                      <MapPin className="h-5 w-5 text-primary mr-3" />
+                      <div>
+                        <div className="font-semibold">Dubai</div>
+                        <div className="text-sm text-muted-foreground">Middle East Hub</div>
+                      </div>
+                    </div>
+                  </Card>
                 </div>
               </div>
 
@@ -507,7 +606,7 @@ const Homepage = () => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
               <h3 className="text-2xl font-bold bg-gradient-brand bg-clip-text text-transparent mb-4">
-                OrbitalConnect AI
+                Orbital Flows
               </h3>
               <p className="text-muted-foreground">
                 Revolutionizing business conversations with AI-powered voice agents.
@@ -542,10 +641,7 @@ const Homepage = () => {
           </div>
           
           <div className="border-t mt-8 pt-8 flex flex-col md:flex-row justify-between items-center">
-            <p className="text-muted-foreground">© 2025 OrbitalConnect AI. All rights reserved.</p>
-            <div className="flex space-x-6 mt-4 md:mt-0">
-              <span className="text-muted-foreground">Follow us on social media</span>
-            </div>
+            <p className="text-muted-foreground">© 2025 Orbital Flows. All rights reserved.</p>
           </div>
         </div>
       </footer>
@@ -555,17 +651,17 @@ const Homepage = () => {
 
 // Component definitions continue...
 const SolutionCard = ({ icon, title, problems }: { icon: React.ReactNode; title: string; problems: string[] }) => (
-  <Card className="text-center hover:shadow-large transition-shadow">
+  <Card className="text-center group hover:shadow-large hover:scale-105 hover:border-primary/50 transition-all duration-300 cursor-pointer">
     <CardHeader>
-      <div className="flex justify-center mb-4 text-primary">
+      <div className="flex justify-center mb-4 text-primary group-hover:text-secondary transition-colors">
         {icon}
       </div>
-      <CardTitle className="text-xl">{title}</CardTitle>
+      <CardTitle className="text-xl group-hover:text-primary transition-colors">{title}</CardTitle>
     </CardHeader>
     <CardContent>
       <ul className="space-y-2">
         {problems.map((problem, index) => (
-          <li key={index} className="text-muted-foreground">{problem}</li>
+          <li key={index} className="text-muted-foreground group-hover:text-foreground transition-colors">{problem}</li>
         ))}
       </ul>
     </CardContent>
@@ -700,18 +796,18 @@ const BookDemoModal = ({ selectedDate, setSelectedDate, demoForm, setDemoForm, o
 );
 
 const integrationLogos = [
-  { name: "Google Calendar", domain: "calendar.google.com" },
-  { name: "HubSpot", domain: "hubspot.com" }, 
-  { name: "Salesforce", domain: "salesforce.com" },
-  { name: "Make.com", domain: "make.com" },
-  { name: "Stripe", domain: "stripe.com" },
-  { name: "Zapier", domain: "zapier.com" },
-  { name: "Slack", domain: "slack.com" },
-  { name: "Microsoft Teams", domain: "teams.microsoft.com" },
-  { name: "Zoom", domain: "zoom.us" },
-  { name: "Calendly", domain: "calendly.com" },
-  { name: "Mailchimp", domain: "mailchimp.com" },
-  { name: "ActiveCampaign", domain: "activecampaign.com" }
+  { name: "Google Calendar", domain: "calendar.google.com", color: "#4285F4" },
+  { name: "HubSpot", domain: "hubspot.com", color: "#FF7A59" }, 
+  { name: "Salesforce", domain: "salesforce.com", color: "#00A1E0" },
+  { name: "Make.com", domain: "make.com", color: "#6366F1" },
+  { name: "Stripe", domain: "stripe.com", color: "#635BFF" },
+  { name: "Zapier", domain: "zapier.com", color: "#FF4A00" },
+  { name: "Slack", domain: "slack.com", color: "#4A154B" },
+  { name: "Microsoft Teams", domain: "teams.microsoft.com", color: "#6264A7" },
+  { name: "Zoom", domain: "zoom.us", color: "#2D8CFF" },
+  { name: "Calendly", domain: "calendly.com", color: "#006BFF" },
+  { name: "Mailchimp", domain: "mailchimp.com", color: "#FFE01B" },
+  { name: "ActiveCampaign", domain: "activecampaign.com", color: "#356AE6" }
 ];
 
 const faqs = [
@@ -724,8 +820,8 @@ const faqs = [
     answer: "Setting up your first campaign is simple. Just use our intuitive campaign builder, define your goals, upload your contact list, and launch. Our platform guides you through each step."
   },
   {
-    question: "Do I need technical skills to use OrbitalConnect AI?",
-    answer: "Not at all! OrbitalConnect AI is designed for business users with no technical background. Our drag-and-drop interface and pre-built templates make it easy to get started."
+    question: "Do I need technical skills to use Orbital Flows?",
+    answer: "Not at all! Orbital Flows is designed for business users with no technical background. Our drag-and-drop interface and pre-built templates make it easy to get started."
   },
   {
     question: "Which integrations are supported?",

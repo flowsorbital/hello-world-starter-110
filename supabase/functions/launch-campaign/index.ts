@@ -72,6 +72,30 @@ serve(async (req) => {
       console.error('Error updating campaign status:', updateError);
     }
 
+    // Save batch call data if available
+    if (result.batch_id) {
+      const { error: batchError } = await supabase
+        .from('batch_calls')
+        .insert({
+          user_id: (await supabase.from('campaigns').select('user_id').eq('id', campaignId).single()).data?.user_id,
+          campaign_id: campaignId,
+          batch_id: result.batch_id,
+          batch_name: callName,
+          agent_id: agentId,
+          phone_number_id: phoneNumberId,
+          scheduled_time_unix: scheduledTimeUnix,
+          created_at_unix: Math.floor(Date.now() / 1000),
+          total_calls_scheduled: recipients.length,
+          status: 'pending'
+        });
+
+      if (batchError) {
+        console.error('Error saving batch call data:', batchError);
+      } else {
+        console.log('Batch call data saved successfully');
+      }
+    }
+
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

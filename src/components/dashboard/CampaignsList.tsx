@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Eye, Phone, Target, Clock, DollarSign } from "lucide-react";
+import { Eye, Phone, Target, Clock, IndianRupee } from "lucide-react";
+import { formatCost } from "@/utils/currency";
 import {
   Table,
   TableBody,
@@ -43,9 +44,6 @@ export function CampaignsList({ campaigns, onViewDetails, isLoading }: Campaigns
     return <Badge variant={statusInfo.variant} className={statusInfo.className}>{statusInfo.label}</Badge>;
   };
 
-  const formatCost = (costInCents: number) => {
-    return `$${(costInCents / 100).toFixed(2)}`;
-  };
 
   const formatDuration = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
@@ -150,7 +148,7 @@ export function CampaignsList({ campaigns, onViewDetails, isLoading }: Campaigns
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <DollarSign className="h-4 w-4 text-muted-foreground" />
+                      <IndianRupee className="h-4 w-4 text-muted-foreground" />
                       {formatCost(campaign.totalCost)}
                     </div>
                   </TableCell>

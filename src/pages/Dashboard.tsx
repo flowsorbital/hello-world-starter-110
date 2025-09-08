@@ -114,13 +114,17 @@ export default function Dashboard() {
 
       {/* Campaign Details or Campaigns List */}
       {selectedCampaignDetails ? (
-        <CampaignDetails
-          campaignId={selectedCampaignDetails}
-          campaignName={campaigns.find(c => c.id === selectedCampaignDetails)?.name || 'Campaign'}
-          conversations={campaignDetailsData}
-          onBack={handleBackToCampaigns}
-          isLoading={isLoading}
-        />
+        <div className="fixed inset-0 z-50 bg-background">
+          <div className="container mx-auto p-6">
+            <CampaignDetails
+              campaignId={selectedCampaignDetails}
+              campaignName={campaigns.find(c => c.id === selectedCampaignDetails)?.name || 'Campaign'}
+              conversations={campaignDetailsData}
+              onBack={handleBackToCampaigns}
+              isLoading={isLoading}
+            />
+          </div>
+        </div>
       ) : (
         <CampaignsList
           campaigns={campaigns}

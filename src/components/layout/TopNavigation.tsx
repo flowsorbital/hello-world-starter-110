@@ -59,7 +59,7 @@ export function TopNavigation() {
           <div className="w-8 h-8 bg-gradient-brand rounded-lg flex items-center justify-center">
             <span className="text-white font-bold text-sm">O</span>
           </div>
-          <span className="font-semibold text-lg">OrbitalConnect AI</span>
+          <span className="font-semibold text-lg">Orbital Flows</span>
         </div>
       </div>
 

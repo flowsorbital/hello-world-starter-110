@@ -183,6 +183,36 @@ export type Database = {
           },
         ]
       }
+      contact_messages: {
+        Row: {
+          company: string
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          message: string
+          reason: string
+        }
+        Insert: {
+          company: string
+          created_at?: string
+          email: string
+          full_name: string
+          id?: string
+          message: string
+          reason: string
+        }
+        Update: {
+          company?: string
+          created_at?: string
+          email?: string
+          full_name?: string
+          id?: string
+          message?: string
+          reason?: string
+        }
+        Relationships: []
+      }
       contacts: {
         Row: {
           additional_fields: Json | null

@@ -101,7 +101,7 @@ const Signup = () => {
         <div className="text-center mb-8">
           <Link to="/" className="inline-block">
             <h1 className="text-3xl font-bold bg-gradient-brand bg-clip-text text-transparent">
-              OrbitalConnect AI
+              Orbital Flows
             </h1>
           </Link>
         </div>
@@ -110,7 +110,7 @@ const Signup = () => {
           <CardHeader className="text-center">
             <CardTitle className="text-2xl">Create Your Account</CardTitle>
             <CardDescription>
-              Start your journey with OrbitalConnect AI
+              Start your journey with Orbital Flows
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -315,7 +315,7 @@ const Signup = () => {
 
         {/* Footer */}
         <div className="mt-8 text-center text-sm text-muted-foreground">
-          © 2025 OrbitalConnect AI. All rights reserved.
+          © 2025 Orbital Flows. All rights reserved.
         </div>
       </div>
     </div>

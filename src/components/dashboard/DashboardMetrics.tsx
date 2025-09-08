@@ -1,5 +1,6 @@
 import { KPICard } from "./KPICard";
-import { Phone, Users, Target, Clock, DollarSign } from "lucide-react";
+import { Phone, Users, Target, Clock, IndianRupee } from "lucide-react";
+import { formatCost } from "@/utils/currency";
 
 interface MetricsData {
   totalCalls: number;
@@ -23,9 +24,6 @@ export function DashboardMetrics({ metrics, isLoading }: DashboardMetricsProps) 
     return `${hours}h ${remainingMinutes}m`;
   };
 
-  const formatCost = (costInCents: number) => {
-    return `$${(costInCents / 100).toFixed(2)}`;
-  };
 
   if (isLoading) {
     return (
@@ -64,7 +62,7 @@ export function DashboardMetrics({ metrics, isLoading }: DashboardMetricsProps) 
       <KPICard
         title="Total Cost"
         value={formatCost(metrics.totalCost)}
-        icon={DollarSign}
+        icon={IndianRupee}
       />
     </div>
   );

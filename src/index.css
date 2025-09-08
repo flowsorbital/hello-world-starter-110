@@ -4,7 +4,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* OrbitalConnect AI Design System - Business-focused voice agent platform */
+/* Orbital Flows Design System - Business-focused voice agent platform */
 
 @layer base {
   :root {
@@ -61,6 +61,10 @@
     --gradient-brand: linear-gradient(135deg, hsl(215 100% 62%), hsl(178 49% 55%));
     --gradient-subtle: linear-gradient(180deg, hsl(0 0% 100%), hsl(210 40% 98%));
     
+    /* Dropdown/Popover Colors */
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 17% 20%;
+
     /* Shadows */
     --shadow-soft: 0 1px 3px 0 hsl(210 40% 92% / 0.4);
     --shadow-medium: 0 4px 6px -1px hsl(210 40% 92% / 0.3);
