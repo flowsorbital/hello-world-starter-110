@@ -55,9 +55,10 @@ export function DashboardFilters({
               <PopoverTrigger asChild>
                 <Button
                   variant="ghost"
-                  className="w-full sm:w-80 justify-start text-left font-normal"
+                  className="p-0 text-left font-normal"
                 >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  <CalendarIcon className="h-4 w-4 text-muted-foreground mr-2" />
+                  <span className="text-sm">
                   {dateRange?.from ? (
                     dateRange.to ? (
                       <>
@@ -70,6 +71,7 @@ export function DashboardFilters({
                   ) : (
                     <span>Select date range</span>
                   )}
+                  </span>
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
