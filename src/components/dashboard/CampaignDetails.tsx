@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ArrowLeft, Phone, Clock, User, FileText, Play, MessageSquare, BarChart3 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Table,
   TableBody,
@@ -23,10 +24,10 @@ interface ConversationDetail {
   call_duration_secs: number;
   start_time_unix: number;
   conversation_summary: string;
-  transcript: any[];
   analysis: any;
   has_audio: boolean;
   additional_fields?: any;
+  conversation_id: string;
 }
 
 interface CampaignDetailsProps {
@@ -47,6 +48,32 @@ export function CampaignDetails({
   const [selectedTranscript, setSelectedTranscript] = useState<ConversationDetail | null>(null);
   const [selectedEvaluation, setSelectedEvaluation] = useState<ConversationDetail | null>(null);
   const [selectedDataCollection, setSelectedDataCollection] = useState<ConversationDetail | null>(null);
+  const [transcriptData, setTranscriptData] = useState<any[]>([]);
+  const [loadingTranscript, setLoadingTranscript] = useState(false);
+
+  const fetchTranscript = async (conversationId: string) => {
+    setLoadingTranscript(true);
+    try {
+      const { data, error } = await (supabase as any)
+        .from('transcripts')
+        .select('full_transcript')
+        .eq('conversation_id', conversationId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching transcript:', error);
+        setTranscriptData([]);
+        return;
+      }
+
+      setTranscriptData(data?.full_transcript || []);
+    } catch (error) {
+      console.error('Error fetching transcript:', error);
+      setTranscriptData([]);
+    } finally {
+      setLoadingTranscript(false);
+    }
+  };
 
   const getStatusBadge = (status: string) => {
     if (status === 'success') {
@@ -172,7 +199,10 @@ export function CampaignDetails({
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setSelectedTranscript(conversation)}
+                        onClick={() => {
+                          setSelectedTranscript(conversation);
+                          fetchTranscript(conversation.conversation_id);
+                        }}
                         className="gap-1"
                       >
                         <MessageSquare className="h-4 w-4" />
@@ -210,29 +240,44 @@ export function CampaignDetails({
       </Card>
 
       {/* Transcript Modal */}
-      <Dialog open={!!selectedTranscript} onOpenChange={() => setSelectedTranscript(null)}>
+      <Dialog open={!!selectedTranscript} onOpenChange={() => {
+        setSelectedTranscript(null);
+        setTranscriptData([]);
+      }}>
         <DialogContent className="max-w-4xl max-h-[80vh]">
           <DialogHeader>
             <DialogTitle>Call Transcript - {selectedTranscript?.phone_number}</DialogTitle>
           </DialogHeader>
           <ScrollArea className="h-96">
-            <div className="space-y-4 p-4">
-              {selectedTranscript?.transcript?.map((message: any, index: number) => (
-                <div key={index} className={`p-3 rounded-lg ${
-                  message.role === 'agent' ? 'bg-primary/10 ml-8' : 'bg-muted mr-8'
-                }`}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Badge variant={message.role === 'agent' ? 'default' : 'secondary'}>
-                      {message.role === 'agent' ? 'Agent' : 'User'}
-                    </Badge>
-                    <span className="text-sm text-muted-foreground">
-                      {message.time_in_call_secs}s
-                    </span>
+            {loadingTranscript ? (
+              <div className="flex items-center justify-center p-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : (
+              <div className="space-y-4 p-4">
+                {transcriptData.length > 0 ? (
+                  transcriptData.map((message: any, index: number) => (
+                    <div key={index} className={`p-3 rounded-lg ${
+                      message.role === 'agent' ? 'bg-primary/10 ml-8' : 'bg-muted mr-8'
+                    }`}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge variant={message.role === 'agent' ? 'default' : 'secondary'}>
+                          {message.role === 'agent' ? 'Agent' : 'User'}
+                        </Badge>
+                        <span className="text-sm text-muted-foreground">
+                          {message.time_in_call_secs}s
+                        </span>
+                      </div>
+                      <p className="text-foreground">{message.message}</p>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center text-muted-foreground p-8">
+                    No transcript available for this conversation.
                   </div>
-                  <p className="text-foreground">{message.message}</p>
-                </div>
-              ))}
-            </div>
+                )}
+              </div>
+            )}
           </ScrollArea>
         </DialogContent>
       </Dialog>

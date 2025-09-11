@@ -58,17 +58,35 @@ serve(async (req) => {
         total_cost: conversationData.metadata?.charging?.call_charge || 0,
         start_time_unix: conversationData.metadata?.start_time_unix,
         accepted_time_unix: conversationData.metadata?.accepted_time_unix,
-        transcript: conversationData.transcript,
         metadata: conversationData.metadata,
         analysis: conversationData.analysis,
         conversation_summary: conversationData.analysis?.transcript_summary || null,
         has_audio: conversationData.has_audio || false,
+        elevenlabs_batch_id: conversationData.metadata?.batch_call?.batch_id || null,
+        recipient_id: conversationData.metadata?.batch_call?.recipient_id || null,
+        recipient_phone_number: conversationData.metadata?.phone_call?.phone_number || null,
       }, {
         onConflict: 'conversation_id'
       });
 
     if (error) {
       console.error('Error storing conversation:', error);
+    }
+
+    // Store transcript separately if it exists
+    if (conversationData.transcript && conversationData.transcript.length > 0) {
+      const { error: transcriptError } = await supabase
+        .from('transcripts')
+        .upsert({
+          conversation_id: conversationData.conversation_id,
+          full_transcript: conversationData.transcript,
+        }, {
+          onConflict: 'conversation_id'
+        });
+
+      if (transcriptError) {
+        console.error('Error storing transcript:', transcriptError);
+      }
     }
 
     return new Response(JSON.stringify(conversationData), {

@@ -31,10 +31,10 @@ interface ConversationDetail {
   call_duration_secs: number;
   start_time_unix: number;
   conversation_summary: string;
-  transcript: any;
   analysis: any;
   has_audio: boolean;
   additional_fields?: any;
+  conversation_id: string;
 }
 
 export function useDashboardData() {
@@ -142,7 +142,6 @@ export function useDashboardData() {
       setCampaigns(processedCampaigns);
       setConversations((conversationsData || []).map(conv => ({
         ...conv,
-        transcript: conv.transcript || [],
         analysis: conv.analysis || {},
       })));
 
@@ -195,6 +194,26 @@ export function useDashboardData() {
     fetchDashboardData();
   }, []);
 
+  const fetchTranscript = async (conversationId: string) => {
+    try {
+      const { data, error } = await (supabase as any)
+        .from('transcripts')
+        .select('full_transcript')
+        .eq('conversation_id', conversationId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching transcript:', error);
+        return null;
+      }
+
+      return data?.full_transcript || null;
+    } catch (error) {
+      console.error('Error fetching transcript:', error);
+      return null;
+    }
+  };
+
   return {
     metrics,
     campaigns,
@@ -202,5 +221,6 @@ export function useDashboardData() {
     isLoading,
     fetchDashboardData,
     fetchCampaignDetails,
+    fetchTranscript,
   };
 }
