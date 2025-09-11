@@ -73,26 +73,56 @@ serve(async (req) => {
     }
 
     // Save batch call data if available
-    if (result.batch_id) {
-      const { error: batchError } = await supabase
-        .from('batch_calls')
-        .insert({
-          user_id: (await supabase.from('campaigns').select('user_id').eq('id', campaignId).single()).data?.user_id,
-          campaign_id: campaignId,
-          batch_id: result.batch_id,
-          batch_name: callName,
-          agent_id: agentId,
-          phone_number_id: phoneNumberId,
-          scheduled_time_unix: scheduledTimeUnix,
-          created_at_unix: Math.floor(Date.now() / 1000),
-          total_calls_scheduled: recipients.length,
-          status: 'pending'
-        });
+    if (result.batch_id || result.id) {
+      // Get user_id first
+      const { data: campaignData, error: campaignError } = await supabase
+        .from('campaigns')
+        .select('user_id')
+        .eq('id', campaignId)
+        .single();
 
-      if (batchError) {
-        console.error('Error saving batch call data:', batchError);
+      if (campaignError) {
+        console.error('Error fetching campaign data:', campaignError);
       } else {
-        console.log('Batch call data saved successfully');
+        const batchIdToUse = result.batch_id || result.id;
+        console.log('Saving batch call data with batch_id:', batchIdToUse);
+        
+        const { error: batchError } = await supabase
+          .from('batch_calls')
+          .insert({
+            user_id: campaignData.user_id,
+            campaign_id: campaignId,
+            batch_id: batchIdToUse,
+            batch_name: callName,
+            agent_id: agentId,
+            phone_number_id: phoneNumberId,
+            scheduled_time_unix: scheduledTimeUnix,
+            created_at_unix: Math.floor(Date.now() / 1000),
+            total_calls_scheduled: recipients.length,
+            status: 'pending'
+          });
+
+        if (batchError) {
+          console.error('Error saving batch call data:', batchError);
+        } else {
+          console.log('Batch call data saved successfully');
+          
+          // Start polling in background
+          console.log('Starting background polling for batch:', batchIdToUse);
+          EdgeRuntime.waitUntil(
+            fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/poll-batch-status`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                batchId: batchIdToUse,
+                userId: campaignData.user_id
+              })
+            }).catch(err => console.error('Error starting polling:', err))
+          );
+        }
       }
     }
 

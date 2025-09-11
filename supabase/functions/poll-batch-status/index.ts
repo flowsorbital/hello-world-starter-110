@@ -85,7 +85,7 @@ serve(async (req) => {
               .select('id')
               .eq('elevenlabs_recipient_id', recipient.recipient_id)
               .eq('elevenlabs_batch_id', batchId)
-              .single();
+              .maybeSingle();
 
             if (!existingRecipient) {
               // Insert new recipient
@@ -104,6 +104,8 @@ serve(async (req) => {
 
               if (recipientError) {
                 console.error('Error inserting recipient:', recipientError);
+              } else {
+                console.log('Inserted new recipient:', recipient.recipient_id);
               }
             } else {
               // Update existing recipient
@@ -119,9 +121,13 @@ serve(async (req) => {
 
               if (recipientUpdateError) {
                 console.error('Error updating recipient:', recipientUpdateError);
+              } else {
+                console.log('Updated existing recipient:', recipient.recipient_id);
               }
             }
           }
+        } else {
+          console.log('No recipients data available in batch response');
         }
 
         // Check if completed
