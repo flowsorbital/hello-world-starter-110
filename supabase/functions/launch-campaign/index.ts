@@ -90,16 +90,18 @@ serve(async (req) => {
         const { error: batchError } = await supabase
           .from('batch_calls')
           .insert({
-            user_id: campaignData.user_id,
-            campaign_id: campaignId,
-            batch_id: batchIdToUse,
-            batch_name: callName,
-            agent_id: agentId,
-            phone_number_id: phoneNumberId,
-            scheduled_time_unix: scheduledTimeUnix,
-            created_at_unix: Math.floor(Date.now() / 1000),
-            total_calls_scheduled: recipients.length,
-            status: 'pending'
+               user_id: campaignData.user_id,
+               campaign_id: campaignId,
+               batch_id: batchIdToUse,
+               batch_name: callName,
+               agent_id: agentId,
+               phone_number_id: phoneNumberId,
+               status: result.status, // Use status from API response
+               total_calls_scheduled: result.total_calls_scheduled, // Use value from API response
+               total_calls_dispatched: result.total_calls_dispatched, // Add this field
+               scheduled_time_unix: scheduledTimeUnix,
+               created_at_unix: result.created_at_unix, // Use value from API response
+               last_updated_at_unix: result.last_updated_at_unix, // Add this field
           });
 
         if (batchError) {
