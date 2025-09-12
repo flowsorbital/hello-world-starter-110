@@ -22,10 +22,21 @@ serve(async (req) => {
       throw new Error('ElevenLabs API key not configured');
     }
 
-    // Create Supabase client
+    // Create Supabase client with ANONYMOUS key for regular access
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Create Supabase client with SERVICE_ROLE key for bypassing RLS
+    const serviceRoleSupabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      {
+        auth: {
+          persistSession: false,
+        },
+      }
+    );
 
     console.log('Launching campaign with data:', {
       call_name: callName,
@@ -59,8 +70,8 @@ serve(async (req) => {
     const result = await response.json();
     console.log('Campaign launched successfully:', result);
 
-    // Update campaign status in database
-    const { error: updateError } = await supabase
+    // Update campaign status in database using the SERVICE_ROLE client
+    const { error: updateError } = await serviceRoleSupabase
       .from('campaigns')
       .update({
         status: 'Launched',
@@ -74,7 +85,7 @@ serve(async (req) => {
 
     // Save batch call data if available
     if (result.batch_id || result.id) {
-      // Get user_id first
+      // Get user_id first using the ANONYMOUS key client
       const { data: campaignData, error: campaignError } = await supabase
         .from('campaigns')
         .select('user_id')
@@ -86,8 +97,9 @@ serve(async (req) => {
       } else {
         const batchIdToUse = result.batch_id || result.id;
         console.log('Saving batch call data with batch_id:', batchIdToUse);
-        
-        const { error: batchError } = await supabase
+
+        // Use the SERVICE_ROLE client to insert data as it's a serverless function
+        const { error: batchError } = await serviceRoleSupabase
           .from('batch_calls')
           .insert({
                user_id: campaignData.user_id,
