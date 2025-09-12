@@ -102,19 +102,19 @@ serve(async (req) => {
         const { error: batchError } = await serviceRoleSupabase
           .from('batch_calls')
           .insert({
-               user_id: campaignData.user_id,
-               campaign_id: campaignId,
-               batch_id: batchIdToUse,
-               batch_name: callName,
-               agent_id: agentId,
-               phone_number_id: phoneNumberId,
-               status: result.status, // Use status from API response
-               total_calls_scheduled: result.total_calls_scheduled, // Use value from API response
-               total_calls_dispatched: result.total_calls_dispatched, // Add this field
-               scheduled_time_unix: scheduledTimeUnix,
-               created_at_unix: result.created_at_unix, // Use value from API response
-               last_updated_at_unix: result.last_updated_at_unix, // Add this field
-          });
+                     user_id: campaignData.user_id,
+                     campaign_id: campaignId,
+                     batch_id: batchIdToUse,
+                     batch_name: result.name, // Corrected: Use name from API response
+                     agent_id: result.agent_id, // Corrected: Use agent_id from API response
+                     phone_number_id: result.phone_number_id, // Corrected: Use phone_number_id from API response
+                     status: result.status,
+                     total_calls_scheduled: result.total_calls_scheduled,
+                     total_calls_dispatched: result.total_calls_dispatched,
+                     scheduled_time_unix: result.scheduled_time_unix, // Corrected: Use scheduled_time_unix from API response
+                     created_at_unix: result.created_at_unix,
+                     last_updated_at_unix: result.last_updated_at_unix,
+                });
 
         if (batchError) {
           console.error('Error saving batch call data:', batchError);
