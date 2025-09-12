@@ -86,7 +86,7 @@ serve(async (req) => {
     // Save batch call data if available
     if (result.id) {
       // Get user_id first using the ANONYMOUS key client
-      const { data: campaignData, error: campaignError } = await supabase
+      const { data: campaignData, error: campaignError } = await serviceRoleSupabase
         .from('campaigns')
         .select('user_id')
         .eq('id', campaignId)
