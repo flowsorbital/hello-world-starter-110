@@ -77,7 +77,7 @@ serve(async (req) => {
         // Save recipients data if available
         if (batchData.recipients && Array.isArray(batchData.recipients)) {
           console.log(`Processing ${batchData.recipients.length} recipients`);
-          
+
           for (const recipient of batchData.recipients) {
             // Check if recipient already exists
             const { data: existingRecipient } = await supabase
@@ -88,7 +88,29 @@ serve(async (req) => {
               .maybeSingle();
 
             if (!existingRecipient) {
-              // Insert new recipient
+              // Check if conversation ID is available
+              if (recipient.conversation_id) {
+                // Step 1: Insert a minimal conversation record first to satisfy the foreign key constraint.
+                // The webhook will later update this record with full details.
+                console.log(`Creating placeholder conversation record for ID: ${recipient.conversation_id}`);
+                const { error: conversationInsertError } = await supabase
+                  .from('conversations')
+                  .insert({
+                    conversation_id: recipient.conversation_id,
+                    status: recipient.status,
+                    user_id: userId,
+                  })
+                  .onConflict('conversation_id')
+                  .ignore(); // This handles cases where the webhook arrived first.
+
+                if (conversationInsertError) {
+                  console.error('Error creating conversation placeholder:', conversationInsertError);
+                  // Continue to the next recipient to avoid blocking the loop
+                  continue;
+                }
+              }
+
+              // Step 2: Now insert the new recipient, including the conversation_id if available.
               const { error: recipientError } = await supabase
                 .from('recipients')
                 .insert({
@@ -105,7 +127,7 @@ serve(async (req) => {
               if (recipientError) {
                 console.error('Error inserting recipient:', recipientError);
               } else {
-                console.log('Inserted new recipient:', recipient.recipient_id);
+                console.log('Inserted new recipient:', recipient.id);
               }
             } else {
               // Update existing recipient
