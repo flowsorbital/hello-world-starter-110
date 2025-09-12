@@ -83,7 +83,7 @@ serve(async (req) => {
             const { data: existingRecipient } = await supabase
               .from('recipients')
               .select('id')
-              .eq('elevenlabs_recipient_id', recipient.recipient_id)
+              .eq('elevenlabs_recipient_id', recipient.id)
               .eq('elevenlabs_batch_id', batchId)
               .maybeSingle();
 
@@ -94,7 +94,7 @@ serve(async (req) => {
                 .insert({
                   user_id: userId,
                   elevenlabs_batch_id: batchId,
-                  elevenlabs_recipient_id: recipient.recipient_id,
+                  elevenlabs_recipient_id: recipient.id,
                   phone_number: recipient.phone_number,
                   contact_name: recipient.contact_name || null,
                   status: recipient.status || null,
@@ -116,13 +116,13 @@ serve(async (req) => {
                   elevenlabs_conversation_id: recipient.conversation_id || null,
                   conversation_initiation_client_data: recipient.conversation_initiation_client_data || null,
                 })
-                .eq('elevenlabs_recipient_id', recipient.recipient_id)
+                .eq('elevenlabs_recipient_id', recipient.id)
                 .eq('elevenlabs_batch_id', batchId);
 
               if (recipientUpdateError) {
                 console.error('Error updating recipient:', recipientUpdateError);
               } else {
-                console.log('Updated existing recipient:', recipient.recipient_id);
+                console.log('Updated existing recipient:', recipient.id);
               }
             }
           }
