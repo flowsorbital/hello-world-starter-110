@@ -90,27 +90,26 @@ serve(async (req) => {
             if (!existingRecipient) {
               // Check if conversation ID is available
               if (recipient.conversation_id) {
-                // Step 1: Insert a minimal conversation record first to satisfy the foreign key constraint.
-                // The webhook will later update this record with full details.
+                // FIX: Replaced insert().onConflict().ignore() with upsert()
+                // The upsert method correctly handles the logic of inserting if the record doesn't exist
+                // or doing nothing if it does, preventing the foreign key violation.
                 console.log(`Creating placeholder conversation record for ID: ${recipient.conversation_id}`);
-                const { error: conversationInsertError } = await supabase
+                const { error: conversationUpsertError } = await supabase
                   .from('conversations')
-                  .insert({
+                  .upsert({
                     conversation_id: recipient.conversation_id,
                     status: recipient.status,
                     user_id: userId,
-                  })
-                  .onConflict('conversation_id')
-                  .ignore(); // This handles cases where the webhook arrived first.
+                  }, { onConflict: 'conversation_id' }); // Use the `onConflict` option for upsert
 
-                if (conversationInsertError) {
-                  console.error('Error creating conversation placeholder:', conversationInsertError);
+                if (conversationUpsertError) {
+                  console.error('Error creating conversation placeholder:', conversationUpsertError);
                   // Continue to the next recipient to avoid blocking the loop
                   continue;
                 }
               }
 
-              // Step 2: Now insert the new recipient, including the conversation_id if available.
+              // Now insert the new recipient, including the conversation_id if available.
               const { error: recipientError } = await supabase
                 .from('recipients')
                 .insert({
@@ -171,7 +170,7 @@ serve(async (req) => {
       } catch (pollError) {
         console.error('Error during polling iteration:', pollError);
         pollCount++;
-        
+
         // Continue polling on errors, but add delay
         if (pollCount < maxPolls) {
           await new Promise(resolve => setTimeout(resolve, pollInterval));
@@ -183,10 +182,10 @@ serve(async (req) => {
       console.warn('Max polling attempts reached');
     }
 
-    return new Response(JSON.stringify({ 
-      success: true, 
+    return new Response(JSON.stringify({
+      success: true,
       completed: isCompleted,
-      pollCount 
+      pollCount
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
