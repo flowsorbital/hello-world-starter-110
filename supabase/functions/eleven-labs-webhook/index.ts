@@ -16,6 +16,13 @@ serve(async (req) => {
     const signature = req.headers.get('elevenlabs-signature');
     const body = await req.text();
     
+    // TEMPORARY: Log all incoming headers to debug
+    console.log('--- Incoming Request Headers ---');
+    req.headers.forEach((value, name) => {
+      console.log(`${name}: ${value}`);
+    });
+    console.log('------------------------------');
+
     // Verify HMAC signature using Web Crypto API
     const webhookSecret = Deno.env.get('ELEVENLABS_WEBHOOK_SECRET');
     if (!webhookSecret) {
