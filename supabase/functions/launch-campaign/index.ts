@@ -84,7 +84,7 @@ serve(async (req) => {
     }
 
     // Save batch call data if available
-    if (result.batch_id || result.id) {
+    if (result.id) {
       // Get user_id first using the ANONYMOUS key client
       const { data: campaignData, error: campaignError } = await supabase
         .from('campaigns')
@@ -95,8 +95,9 @@ serve(async (req) => {
       if (campaignError) {
         console.error('Error fetching campaign data:', campaignError);
       } else {
-        const batchIdToUse = result.batch_id || result.id;
+        const batchIdToUse = result.id; // API returns 'id' field as batch_id
         console.log('Saving batch call data with batch_id:', batchIdToUse);
+        console.log('Full API response:', JSON.stringify(result));
 
         // Use the SERVICE_ROLE client to insert data as it's a serverless function
         const { error: batchError } = await serviceRoleSupabase
@@ -104,14 +105,14 @@ serve(async (req) => {
           .insert({
                      user_id: campaignData.user_id,
                      campaign_id: campaignId,
-                     batch_id: batchIdToUse,
-                     batch_name: result.name, // Corrected: Use name from API response
-                     agent_id: result.agent_id, // Corrected: Use agent_id from API response
-                     phone_number_id: result.phone_number_id, // Corrected: Use phone_number_id from API response
+                     batch_id: batchIdToUse, // API 'id' maps to our 'batch_id'
+                     batch_name: result.name, // API 'name' maps to our 'batch_name'
+                     agent_id: result.agent_id,
+                     phone_number_id: result.phone_number_id,
                      status: result.status,
                      total_calls_scheduled: result.total_calls_scheduled,
                      total_calls_dispatched: result.total_calls_dispatched,
-                     scheduled_time_unix: result.scheduled_time_unix, // Corrected: Use scheduled_time_unix from API response
+                     scheduled_time_unix: result.scheduled_time_unix,
                      created_at_unix: result.created_at_unix,
                      last_updated_at_unix: result.last_updated_at_unix,
                 });
