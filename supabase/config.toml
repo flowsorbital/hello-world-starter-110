@@ -1,1 +1,4 @@
 project_id = "opmgrupbwdubxxvpsjng"
+
+[functions.eleven-labs-webhook]
+verify_jwt = false
