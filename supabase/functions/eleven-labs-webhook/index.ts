@@ -16,17 +16,13 @@ serve(async (req) => {
     const signature = req.headers.get('elevenlabs-signature');
     const body = await req.text();
     
-    // TEMPORARY: Log all incoming headers to debug
-    console.log('--- Incoming Request Headers ---');
-    req.headers.forEach((value, name) => {
-      console.log(`${name}: ${value}`);
-    });
-    console.log('------------------------------');
+    const webhookData = JSON.parse(body);
+    console.log('Received webhook payload:', JSON.stringify(webhookData, null, 2));
 
     // Verify HMAC signature using Web Crypto API
     const webhookSecret = Deno.env.get('ELEVENLABS_WEBHOOK_SECRET');
     if (!webhookSecret) {
-      console.error('Webhook secret not configured:', webhookSecret);
+      console.error('Webhook secret not configured');
       throw new Error('Webhook secret not configured');
     }
 
@@ -53,8 +49,7 @@ serve(async (req) => {
       return new Response('Unauthorized', { status: 401 });
     }
 
-    const webhookData = JSON.parse(body);
-    console.log('Received webhook:', webhookData);
+    console.log('Webhook type:', webhookData.type);
 
     // Create Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -63,23 +58,40 @@ serve(async (req) => {
 
     if (webhookData.type === 'post_call_transcription') {
       const conversationData = webhookData.data;
+      console.log('Processing conversation:', conversationData.conversation_id);
 
-      // New Logic: Find the correct user_id from our database using the recipient ID.
-      const { data: recipientRecord, error: recipientError } = await supabase
-        .from('recipients')
-        .select('user_id, elevenlabs_recipient_id, elevenlabs_batch_id')
-        .eq('elevenlabs_recipient_id', conversationData.batch_call.batch_call_recipient_id)
-        .single();
+      // Try to find user_id from recipient record, but don't fail if not found
+      let userId = null;
+      if (conversationData.batch_call?.batch_call_recipient_id) {
+        const { data: recipientRecord } = await supabase
+          .from('recipients')
+          .select('user_id')
+          .eq('elevenlabs_recipient_id', conversationData.batch_call.batch_call_recipient_id)
+          .maybeSingle();
+        
+        userId = recipientRecord?.user_id;
+        console.log('Found user_id from recipient:', userId);
+      }
 
-      if (recipientError || !recipientRecord) {
-        console.error('Error fetching recipient record or recipient not found:', recipientError);
-        return new Response(JSON.stringify({ error: 'Recipient record not found' }), {
-          status: 404,
+      // If no user_id found from recipient, try to find from batch_calls table
+      if (!userId && conversationData.batch_call?.batch_call_id) {
+        const { data: batchRecord } = await supabase
+          .from('batch_calls')
+          .select('user_id')
+          .eq('batch_id', conversationData.batch_call.batch_call_id)
+          .maybeSingle();
+        
+        userId = batchRecord?.user_id;
+        console.log('Found user_id from batch_calls:', userId);
+      }
+
+      if (!userId) {
+        console.error('Unable to determine user_id for conversation');
+        return new Response(JSON.stringify({ error: 'Unable to determine user_id' }), {
+          status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-
-      const userId = recipientRecord.user_id;
 
       // Step 1: Upsert the conversation record.
       const { error: conversationUpsertError } = await supabase
@@ -88,7 +100,7 @@ serve(async (req) => {
           user_id: userId,
           conversation_id: conversationData.conversation_id,
           agent_id: conversationData.agent_id,
-          phone_number: conversationData.phone_number,
+          phone_number: conversationData.phone_call?.external_number || null,
           contact_name: conversationData.contact_name || null,
           status: conversationData.status,
           call_successful: conversationData.analysis?.call_successful || null,
@@ -101,7 +113,8 @@ serve(async (req) => {
           metadata: conversationData.metadata || {},
           has_audio: conversationData.has_audio || false,
           elevenlabs_batch_id: conversationData.batch_call?.batch_call_id || null,
-          recipient_id: conversationData.batch_call?.batch_call_recipient_id || null
+          recipient_id: conversationData.batch_call?.batch_call_recipient_id || null,
+          recipient_phone_number: conversationData.phone_call?.external_number || null
         }, { onConflict: 'conversation_id' });
 
       if (conversationUpsertError) {
@@ -109,38 +122,36 @@ serve(async (req) => {
       } else {
         console.log('Conversation saved successfully');
 
-        // Step 2: Insert each transcript entry into the new transcripts table
-        const transcriptEntries = conversationData.transcript.map((turn) => ({
+        // Step 2: Save transcript data to transcripts table
+        const { error: transcriptUpsertError } = await supabase
+          .from('transcripts')
+          .upsert({
             conversation_id: conversationData.conversation_id,
-            role: turn.role,
-            message: turn.message,
-            time_in_call_secs: turn.time_in_call_secs
-        }));
+            full_transcript: conversationData.transcript || []
+          }, { onConflict: 'conversation_id' });
 
-        const { error: transcriptInsertError } = await supabase
-            .from('transcripts')
-            .insert(transcriptEntries);
-
-        if (transcriptInsertError) {
-            console.error('Error inserting transcripts:', transcriptInsertError);
+        if (transcriptUpsertError) {
+          console.error('Error saving transcript:', transcriptUpsertError);
         } else {
-            console.log('Transcripts saved successfully');
+          console.log('Transcript saved successfully');
         }
 
-        // Step 3: Update the recipient record to link it to the conversation.
-        const { error: recipientUpdateError } = await supabase
-          .from('recipients')
-          .update({
-            elevenlabs_conversation_id: conversationData.conversation_id,
-            status: conversationData.status,
-            updated_at: new Date().toISOString()
-          })
-          .eq('elevenlabs_recipient_id', recipientRecord.elevenlabs_recipient_id);
+        // Step 3: Update the recipient record to link it to the conversation (if recipient exists)
+        if (conversationData.batch_call?.batch_call_recipient_id) {
+          const { error: recipientUpdateError } = await supabase
+            .from('recipients')
+            .update({
+              elevenlabs_conversation_id: conversationData.conversation_id,
+              status: conversationData.status,
+              updated_at: new Date().toISOString()
+            })
+            .eq('elevenlabs_recipient_id', conversationData.batch_call.batch_call_recipient_id);
 
-        if (recipientUpdateError) {
-          console.error('Error updating recipient with conversation ID:', recipientUpdateError);
-        } else {
-          console.log('Recipient updated with conversation ID successfully');
+          if (recipientUpdateError) {
+            console.error('Error updating recipient with conversation ID:', recipientUpdateError);
+          } else {
+            console.log('Recipient updated with conversation ID successfully');
+          }
         }
       }
     } else if (webhookData.type === 'batch_status_update') {
