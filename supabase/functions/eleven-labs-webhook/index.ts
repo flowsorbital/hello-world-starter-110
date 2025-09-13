@@ -102,16 +102,16 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     if (webhookData.type === 'post_call_transcription') {
-      const conversationData = webhookData.data;
+      const conversationData = webhookData.data; //conv_6501k4yxfg2ce8rawe5dew8dzy0h
       console.log('Processing conversation:', conversationData.conversation_id);
-
+      console.log('batch_call_recipient_id:', conversationData.metadata.batch_call?.batch_call_recipient_id);
       // Try to find user_id from recipient record, but don't fail if not found
       let userId = null;
-      if (conversationData.batch_call?.batch_call_recipient_id) {
+      if (conversationData.metadata.batch_call?.batch_call_recipient_id) {
         const { data: recipientRecord } = await supabase
           .from('recipients')
           .select('user_id')
-          .eq('elevenlabs_recipient_id', conversationData.batch_call.batch_call_recipient_id)
+          .eq('elevenlabs_recipient_id', conversationData.metadata.batch_call.batch_call_recipient_id)
           .maybeSingle();
         
         userId = recipientRecord?.user_id;
@@ -119,11 +119,11 @@ serve(async (req) => {
       }
 
       // If no user_id found from recipient, try to find from batch_calls table
-      if (!userId && conversationData.batch_call?.batch_call_id) {
+      if (!userId && conversationData.metadata.batch_call?.batch_call_id) {
         const { data: batchRecord } = await supabase
           .from('batch_calls')
           .select('user_id')
-          .eq('batch_id', conversationData.batch_call.batch_call_id)
+          .eq('batch_id', conversationData.metadata.batch_call.batch_call_id)
           .maybeSingle();
         
         userId = batchRecord?.user_id;
@@ -145,7 +145,7 @@ serve(async (req) => {
           user_id: userId,
           conversation_id: conversationData.conversation_id,
           agent_id: conversationData.agent_id,
-          phone_number: conversationData.phone_call?.external_number || null,
+          phone_number: conversationData.metadata.phone_call?.external_number || null,
           contact_name: conversationData.contact_name || null,
           status: conversationData.status,
           call_successful: conversationData.analysis?.call_successful || null,
@@ -157,9 +157,9 @@ serve(async (req) => {
           analysis: conversationData.analysis || {},
           metadata: conversationData.metadata || {},
           has_audio: conversationData.has_audio || false,
-          elevenlabs_batch_id: conversationData.batch_call?.batch_call_id || null,
-          recipient_id: conversationData.batch_call?.batch_call_recipient_id || null,
-          recipient_phone_number: conversationData.phone_call?.external_number || null
+          elevenlabs_batch_id: conversationData.metadata.batch_call?.batch_call_id || null,
+          recipient_id: conversationData.metadata.batch_call?.batch_call_recipient_id || null,
+          recipient_phone_number: conversationData.metadata.phone_call?.external_number || null
         }, { onConflict: 'conversation_id' });
 
       if (conversationUpsertError) {
@@ -182,7 +182,7 @@ serve(async (req) => {
         }
 
         // Step 3: Update the recipient record to link it to the conversation (if recipient exists)
-        if (conversationData.batch_call?.batch_call_recipient_id) {
+        if (conversationData.metadata.batch_call?.batch_call_recipient_id) {
           const { error: recipientUpdateError } = await supabase
             .from('recipients')
             .update({
@@ -190,7 +190,7 @@ serve(async (req) => {
               status: conversationData.status,
               updated_at: new Date().toISOString()
             })
-            .eq('elevenlabs_recipient_id', conversationData.batch_call.batch_call_recipient_id);
+            .eq('elevenlabs_recipient_id', conversationData.metadata.batch_call.batch_call_recipient_id);
 
           if (recipientUpdateError) {
             console.error('Error updating recipient with conversation ID:', recipientUpdateError);
