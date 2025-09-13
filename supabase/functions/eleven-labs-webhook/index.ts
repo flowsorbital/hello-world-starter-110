@@ -105,6 +105,8 @@ serve(async (req) => {
       const conversationData = webhookData.data; //conv_6501k4yxfg2ce8rawe5dew8dzy0h
       console.log('Processing conversation:', conversationData.conversation_id);
       console.log('batch_call_recipient_id:', conversationData.metadata.batch_call?.batch_call_recipient_id);
+
+      /*
       // Try to find user_id from recipient record, but don't fail if not found
       let userId = null;
       if (conversationData.metadata.batch_call?.batch_call_recipient_id) {
@@ -118,16 +120,23 @@ serve(async (req) => {
         console.log('Found user_id from recipient:', userId);
       }
 
+
       // If no user_id found from recipient, try to find from batch_calls table
       if (!userId && conversationData.metadata.batch_call?.batch_call_id) {
+      */
+      let userId = null;
+      let campaignId = null;
+      if (conversationData.metadata.batch_call?.batch_call_id) {
         const { data: batchRecord } = await supabase
           .from('batch_calls')
-          .select('user_id')
+          .select('user_id, campaign_id')
           .eq('batch_id', conversationData.metadata.batch_call.batch_call_id)
           .maybeSingle();
         
         userId = batchRecord?.user_id;
+        campaignId = batchRecord?.campaign_id
         console.log('Found user_id from batch_calls:', userId);
+        console.log('Found campaignId from batch_calls:', campaignId);
       }
 
       if (!userId) {
@@ -143,6 +152,7 @@ serve(async (req) => {
         .from('conversations')
         .upsert({
           user_id: userId,
+          campaign_id: campaignId,
           conversation_id: conversationData.conversation_id,
           agent_id: conversationData.agent_id,
           phone_number: conversationData.metadata.phone_call?.external_number || null,
