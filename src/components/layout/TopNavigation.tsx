@@ -18,6 +18,8 @@ const getPageTitle = (pathname: string) => {
       return "Campaign Analytics";
     case "/settings":
       return "Settings";
+    case "/support":
+      return "Support";
     default:
       return "Dashboard";
   }
@@ -52,7 +54,7 @@ export function TopNavigation() {
   };
 
   return (
-    <header className="h-16 border-b bg-card flex items-center justify-between px-6 shadow-soft">
+    <header className="h-16 border-b bg-card flex items-center justify-between px-6 shadow-soft flex-shrink-0">
       <div className="flex items-center gap-4">
         <SidebarTrigger />
         <div className="flex items-center gap-3">

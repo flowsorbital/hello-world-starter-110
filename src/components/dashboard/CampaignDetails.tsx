@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, Phone, Clock, User, FileText, Play, MessageSquare, BarChart3 } from "lucide-react";
+import { ArrowLeft, Phone, Clock, User, FileText, Play, MessageSquare, BarChart3, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Table,
@@ -15,6 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { format } from "date-fns";
+import * as XLSX from 'xlsx';
 
 interface ConversationDetail {
   id: string;
@@ -75,12 +76,7 @@ export function CampaignDetails({
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    if (status === 'success') {
-      return <Badge variant="default" className="bg-success text-success-foreground">Success</Badge>;
-    }
-    return <Badge variant="destructive">Failed</Badge>;
-  };
+
 
   const formatDuration = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
@@ -91,6 +87,63 @@ export function CampaignDetails({
   const formatDateTime = (unix: number) => {
     if (!unix) return 'N/A';
     return format(new Date(unix * 1000), 'MMM dd, yyyy HH:mm');
+  };
+
+  const formatDateOnly = (unix: number) => {
+    if (!unix) return 'N/A';
+    return format(new Date(unix * 1000), 'MMMM dd, yyyy');
+  };
+
+  const formatTimeOnly = (unix: number) => {
+    if (!unix) return 'N/A';
+    return format(new Date(unix * 1000), 'hh:mm a');
+  };
+
+  const formatTimeFromStart = (callStartUnix: number, elapsedSeconds: number) => {
+    if (!callStartUnix) return `${elapsedSeconds}s`;
+    const messageTime = new Date((callStartUnix + elapsedSeconds) * 1000);
+    return format(messageTime, 'hh:mm:ss a');
+  };
+
+  const getCallStatusBadge = (status: string) => {
+    // Map ElevenLabs webhook status values
+    const statusMap: { [key: string]: { variant: any; label: string; className?: string } } = {
+      'completed': { variant: 'default', label: 'Completed', className: 'bg-success text-success-foreground' },
+      'failed': { variant: 'destructive', label: 'Failed' },
+      'in_progress': { variant: 'secondary', label: 'In Progress' },
+      'queued': { variant: 'secondary', label: 'Queued' },
+      'success': { variant: 'default', label: 'Success', className: 'bg-success text-success-foreground' },
+      'no_answer': { variant: 'destructive', label: 'No Answer' },
+      'busy': { variant: 'destructive', label: 'Busy' },
+      'voicemail': { variant: 'secondary', label: 'Voicemail' }
+    };
+    
+    const statusInfo = statusMap[status?.toLowerCase()] || { variant: 'secondary', label: status || 'Unknown' };
+    return <Badge variant={statusInfo.variant} className={statusInfo.className}>{statusInfo.label}</Badge>;
+  };
+
+  const downloadExcel = () => {
+    // Prepare data for Excel export
+    const excelData = conversations.map(conversation => ({
+      'Phone Number': conversation.phone_number || 'N/A',
+      'Name': conversation.contact_name || 'Unknown',
+      'Call Status': conversation.call_successful || 'Unknown',
+      'Date': formatDateOnly(conversation.start_time_unix),
+      'Start Time': formatTimeOnly(conversation.start_time_unix),
+      'Duration': formatDuration(conversation.call_duration_secs),
+      'Summary': conversation.conversation_summary || 'No summary available',
+      'Has Audio': conversation.has_audio ? 'Yes' : 'No'
+    }));
+
+    // Create workbook and worksheet
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(excelData);
+
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(wb, ws, 'Call Details');
+
+    // Download the file
+    XLSX.writeFile(wb, `${campaignName}_call_details.xlsx`);
   };
 
   const playCallRecording = async (conversationId: string) => {
@@ -113,24 +166,25 @@ export function CampaignDetails({
     <div className="space-y-6">
       <Card className="shadow-soft border-card-border">
         <CardHeader>
-          <div className="flex items-center gap-4">
-            <Button
-              variant="outline"
-              onClick={onBack}
-              className="gap-2"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back to Campaigns
-            </Button>
+          <div className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Phone className="h-5 w-5" />
-                {campaignName} - Call Details
+                Call Details
               </CardTitle>
               <p className="text-muted-foreground mt-1">
                 {conversations.length} total calls
               </p>
             </div>
+            <Button
+              variant="outline"
+              onClick={downloadExcel}
+              className="gap-2"
+              disabled={conversations.length === 0}
+            >
+              <Download className="h-4 w-4" />
+              Download Excel
+            </Button>
           </div>
         </CardHeader>
         <CardContent>
@@ -140,7 +194,7 @@ export function CampaignDetails({
                 <TableRow>
                   <TableHead>Phone Number</TableHead>
                   <TableHead>Name</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Call Status</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Start Time</TableHead>
                   <TableHead>Duration</TableHead>
@@ -161,13 +215,13 @@ export function CampaignDetails({
                       {conversation.contact_name || 'Unknown'}
                     </TableCell>
                     <TableCell>
-                      {getStatusBadge(conversation.call_successful)}
+                      {getCallStatusBadge(conversation.call_successful)}
                     </TableCell>
                     <TableCell>
-                      {formatDateTime(conversation.start_time_unix).split(' ')[0]}
+                      {formatDateOnly(conversation.start_time_unix)}
                     </TableCell>
                     <TableCell>
-                      {formatDateTime(conversation.start_time_unix).split(' ')[1]}
+                      {formatTimeOnly(conversation.start_time_unix)}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
@@ -265,7 +319,7 @@ export function CampaignDetails({
                           {message.role === 'agent' ? 'Agent' : 'User'}
                         </Badge>
                         <span className="text-sm text-muted-foreground">
-                          {message.time_in_call_secs}s
+                          {selectedTranscript && formatTimeFromStart(selectedTranscript.start_time_unix, message.time_in_call_secs)}
                         </span>
                       </div>
                       <p className="text-foreground">{message.message}</p>

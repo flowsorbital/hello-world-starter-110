@@ -16,7 +16,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           <main className="flex-1 p-6">
             {children}
           </main>
-          <footer className="border-t bg-card px-6 py-4">
+          <footer className="border-t bg-card px-6 py-4 flex-shrink-0">
             <p className="text-sm text-muted-foreground text-center">
               Powered by Orbital Flows | © 2025
             </p>

@@ -21,6 +21,7 @@ interface Campaign {
   totalCost: number;
   totalMinutes: number;
   created_at: string;
+  launched_at: string | null;
 }
 
 interface ConversationDetail {
@@ -50,7 +51,7 @@ export function useDashboardData() {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  const fetchDashboardData = async (selectedCampaign?: string, dateRange?: DateRange) => {
+  const fetchDashboardData = async (selectedCampaigns?: string[]) => {
     try {
       setIsLoading(true);
 
@@ -59,15 +60,10 @@ export function useDashboardData() {
         .from('conversations')
         .select('*');
 
-      if (selectedCampaign && selectedCampaign !== 'all') {
-        conversationsQuery = conversationsQuery.eq('campaign_id', selectedCampaign);
+      if (selectedCampaigns && selectedCampaigns.length > 0 && !selectedCampaigns.includes('all')) {
+        conversationsQuery = conversationsQuery.in('campaign_id', selectedCampaigns);
       }
 
-      if (dateRange?.from && dateRange?.to) {
-        conversationsQuery = conversationsQuery
-          .gte('created_at', dateRange.from.toISOString())
-          .lte('created_at', dateRange.to.toISOString());
-      }
 
       const { data: conversationsData, error: conversationsError } = await conversationsQuery;
 
@@ -81,17 +77,25 @@ export function useDashboardData() {
         return;
       }
 
-      // Fetch campaigns with aggregated data
-      const { data: campaignsData, error: campaignsError } = await supabase
+      // Build query for campaigns with filtering
+      let campaignsQuery = supabase
         .from('campaigns')
         .select(`
           *,
           conversations!campaign_id (
             call_successful,
             call_duration_secs,
-            total_cost
+            total_cost,
+            created_at
           )
         `);
+
+      // Apply campaign filter to campaigns query
+      if (selectedCampaigns && selectedCampaigns.length > 0 && !selectedCampaigns.includes('all')) {
+        campaignsQuery = campaignsQuery.in('id', selectedCampaigns);
+      }
+
+      const { data: campaignsData, error: campaignsError } = await campaignsQuery;
 
       if (campaignsError) {
         console.error('Error fetching campaigns:', campaignsError);
@@ -121,6 +125,7 @@ export function useDashboardData() {
       // Process campaigns data
       const processedCampaigns: Campaign[] = campaignsData?.map(campaign => {
         const campaignCalls = campaign.conversations || [];
+        
         const campaignConnected = campaignCalls.filter((c: any) => c.call_successful === 'success').length;
         const campaignSuccessRate = campaignCalls.length > 0 ? (campaignConnected / campaignCalls.length) * 100 : 0;
         const campaignMinutes = campaignCalls.reduce((sum: number, c: any) => sum + (c.call_duration_secs / 60), 0);
@@ -136,6 +141,7 @@ export function useDashboardData() {
           totalCost: campaignCost,
           totalMinutes: campaignMinutes,
           created_at: campaign.created_at,
+          launched_at: campaign.launched_at,
         };
       }) || [];
 

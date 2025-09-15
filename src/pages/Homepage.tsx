@@ -579,21 +579,16 @@ const Homepage = () => {
 
               <div>
                 <h3 className="text-xl font-semibold mb-4">Prefer a demo instead?</h3>
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" className="w-full">
-                      Book a Demo
-                      <CalendarIcon className="ml-2 h-4 w-4" />
-                    </Button>
-                  </DialogTrigger>
-                  <BookDemoModal 
-                    selectedDate={selectedDate}
-                    setSelectedDate={setSelectedDate}
-                    demoForm={demoForm}
-                    setDemoForm={setDemoForm}
-                    onBookDemo={handleDemoBooking}
-                  />
-                </Dialog>
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  data-cal-link="orbital-flows/30min"
+                  data-cal-namespace="orbital-flows/30min"
+                  data-cal-config='{"layout":"month_view"}'
+                >
+                  Book a Demo
+                  <CalendarIcon className="ml-2 h-4 w-4" />
+                </Button>
               </div>
             </div>
           </div>
