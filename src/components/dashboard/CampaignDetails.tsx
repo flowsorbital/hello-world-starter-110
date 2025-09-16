@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, Phone, Clock, User, FileText, Play, MessageSquare, BarChart3, Download } from "lucide-react";
+import { ArrowLeft, Phone, Clock, User, FileText, Play, MessageSquare, BarChart3, Download, Volume2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Table,
@@ -39,12 +39,12 @@ interface CampaignDetailsProps {
   isLoading?: boolean;
 }
 
-export function CampaignDetails({ 
-  campaignId, 
-  campaignName, 
-  conversations, 
-  onBack, 
-  isLoading 
+export function CampaignDetails({
+  campaignId,
+  campaignName,
+  conversations,
+  onBack,
+  isLoading
 }: CampaignDetailsProps) {
   const [selectedTranscript, setSelectedTranscript] = useState<ConversationDetail | null>(null);
   const [selectedEvaluation, setSelectedEvaluation] = useState<ConversationDetail | null>(null);
@@ -117,23 +117,39 @@ export function CampaignDetails({
       'busy': { variant: 'destructive', label: 'Busy' },
       'voicemail': { variant: 'secondary', label: 'Voicemail' }
     };
-    
+
     const statusInfo = statusMap[status?.toLowerCase()] || { variant: 'secondary', label: status || 'Unknown' };
     return <Badge variant={statusInfo.variant} className={statusInfo.className}>{statusInfo.label}</Badge>;
   };
 
   const downloadExcel = () => {
-    // Prepare data for Excel export
-    const excelData = conversations.map(conversation => ({
-      'Phone Number': conversation.phone_number || 'N/A',
-      'Name': conversation.metadata?.dynamic_variables?.name || conversation.contact_name || 'Unknown',
-      'Call Status': conversation.call_successful || 'Unknown',
-      'Date': formatDateOnly(conversation.start_time_unix),
-      'Start Time': formatTimeOnly(conversation.start_time_unix),
-      'Duration': formatDuration(conversation.call_duration_secs),
-      'Summary': conversation.conversation_summary || 'No summary available',
-      'Has Audio': conversation.has_audio ? 'Yes' : 'No'
-    }));
+    // Prepare data for Excel export including Evaluation & Data Collection
+    const excelData = conversations.map(conversation => {
+      // Extract evaluation results
+      const evaluationResults = conversation.analysis?.evaluation_criteria_results ?
+        Object.entries(conversation.analysis.evaluation_criteria_results)
+          .map(([key, result]: [string, any]) => `${result.criteria_id}: ${result.result}`)
+          .join('; ') : 'N/A';
+
+      // Extract data collection results
+      const dataCollectionResults = conversation.analysis?.data_collection_results ?
+        Object.entries(conversation.analysis.data_collection_results)
+          .map(([key, result]: [string, any]) => `${result.data_collection_id}: ${result.value || 'No value'}`)
+          .join('; ') : 'N/A';
+
+      return {
+        'Phone Number': conversation.phone_number || 'N/A',
+        'Name': conversation.contact_name || 'Unknown',
+        'Call Status': conversation.call_successful || 'Unknown',
+        'Date': formatDateOnly(conversation.start_time_unix),
+        'Start Time': formatTimeOnly(conversation.start_time_unix),
+        'Duration': formatDuration(conversation.call_duration_secs),
+        'Summary': conversation.conversation_summary || 'No summary available',
+        'Has Audio': conversation.has_audio ? 'Yes' : 'No',
+        'Evaluation Results': evaluationResults,
+        'Data Collection Results': dataCollectionResults
+      };
+    });
 
     // Create workbook and worksheet
     const wb = XLSX.utils.book_new();
@@ -147,9 +163,60 @@ export function CampaignDetails({
   };
 
   const playCallRecording = async (conversationId: string) => {
-    // This would call the ElevenLabs audio endpoint
-    console.log('Playing audio for conversation:', conversationId);
-    // Implementation would fetch audio from https://api.elevenlabs.io/v1/convai/conversations/:conversation_id/audio
+    try {
+      // Call the ElevenLabs audio endpoint
+      const response = await fetch(`https://api.elevenlabs.io/v1/convai/conversations/${conversationId}/audio`, {
+        method: 'GET',
+        headers: {
+          'xi-api-key': process.env.REACT_APP_ELEVENLABS_API_KEY || '',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch audio');
+      }
+
+      // Create blob from response
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+
+      // Create download link
+      const downloadLink = document.createElement('a');
+      downloadLink.href = audioUrl;
+      downloadLink.download = `call_recording_${conversationId}.mp3`;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+
+      // Auto-play the audio
+      const audio = new Audio(audioUrl);
+      audio.play().catch(error => {
+        console.error('Error playing audio:', error);
+      });
+
+      // Clean up the object URL after a delay
+      setTimeout(() => {
+        URL.revokeObjectURL(audioUrl);
+      }, 1000);
+
+    } catch (error: any) {
+      console.error('Error playing audio:', error);
+      // Fallback: try using Supabase function if direct API fails
+      try {
+        const { data, error: funcError } = await supabase.functions.invoke('get-conversation-audio', {
+          body: { conversationId }
+        });
+
+        if (funcError) throw funcError;
+
+        if (data?.audioUrl) {
+          const audio = new Audio(data.audioUrl);
+          audio.play();
+        }
+      } catch (fallbackError) {
+        console.error('Fallback audio fetch also failed:', fallbackError);
+      }
+    }
   };
 
   if (isLoading) {
@@ -200,9 +267,9 @@ export function CampaignDetails({
                   <TableHead>Duration</TableHead>
                   <TableHead>Summary</TableHead>
                   <TableHead>Recording</TableHead>
-                  <TableHead>Transcript</TableHead>
                   <TableHead>Evaluation</TableHead>
                   <TableHead>Data Collection</TableHead>
+                  <TableHead>Transcript</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -212,7 +279,7 @@ export function CampaignDetails({
                       {conversation.phone_number || 'N/A'}
                     </TableCell>
                     <TableCell>
-                      {conversation.metadata?.dynamic_variables?.name || conversation.contact_name || 'Unknown'}
+                      {conversation.contact_name || 'Unknown'}
                     </TableCell>
                     <TableCell>
                       {getCallStatusBadge(conversation.call_successful)}
@@ -239,15 +306,43 @@ export function CampaignDetails({
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => playCallRecording(conversation.id)}
+                          onClick={() => playCallRecording(conversation.conversation_id)}
                           className="gap-1"
                         >
-                          <Play className="h-4 w-4" />
-                          Play
+                          <Volume2 className="h-4 w-4" />
+                          Listen
                         </Button>
                       ) : (
                         <span className="text-muted-foreground text-sm">No audio</span>
                       )}
+                    </TableCell>
+                    <TableCell>
+                      {conversation.analysis?.evaluation_criteria_results ? (
+                        <div className="space-y-1">
+                          {Object.entries(conversation.analysis.evaluation_criteria_results).map(([key, result]: [string, any]) => (
+                            <Badge
+                              key={key}
+                              variant={result.result === 'success' ? 'default' : 'destructive'}
+                              className={result.result === 'success' ? 'bg-success text-success-foreground' : ''}
+                            >
+                              {result.result}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">No evaluation</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSelectedDataCollection(conversation)}
+                        className="gap-1"
+                      >
+                        <FileText className="h-4 w-4" />
+                        View
+                      </Button>
                     </TableCell>
                     <TableCell>
                       <Button
@@ -260,28 +355,6 @@ export function CampaignDetails({
                         className="gap-1"
                       >
                         <MessageSquare className="h-4 w-4" />
-                        View
-                      </Button>
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSelectedEvaluation(conversation)}
-                        className="gap-1"
-                      >
-                        <BarChart3 className="h-4 w-4" />
-                        View
-                      </Button>
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSelectedDataCollection(conversation)}
-                        className="gap-1"
-                      >
-                        <FileText className="h-4 w-4" />
                         View
                       </Button>
                     </TableCell>
