@@ -1,4 +1,3 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -13,54 +12,55 @@ serve(async (req) => {
 
   try {
     const { conversationId } = await req.json();
-    
+
     if (!conversationId) {
-      throw new Error('Conversation ID is required');
-    }
-    
-    const elevenlabsApiKey = Deno.env.get('ELEVENLABS_API_KEY');
-    
-    if (!elevenlabsApiKey) {
-      throw new Error('ElevenLabs API key not configured');
+      return new Response(JSON.stringify({ error: "conversationId is required" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
-    console.log('Fetching audio for conversation:', conversationId);
+    // Get the ElevenLabs API key from a Supabase Secret
+    const elevenLabsApiKey = Deno.env.get("ELEVENLABS_API_KEY");
 
-    const response = await fetch(`https://api.elevenlabs.io/v1/convai/conversations/${conversationId}/audio`, {
+    if (!elevenLabsApiKey) {
+      return new Response(JSON.stringify({ error: "ElevenLabs API key not configured" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const elevenLabsResponse = await fetch(`https://api.elevenlabs.io/v1/convai/conversations/${conversationId}/audio`, {
       method: 'GET',
       headers: {
-        'xi-api-key': elevenlabsApiKey,
-        'Content-Type': 'application/json',
+        'xi-api-key': elevenLabsApiKey,
       },
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('ElevenLabs API error:', response.status, errorText);
-      throw new Error(`ElevenLabs API error: ${response.status} - ${errorText}`);
+    if (!elevenLabsResponse.ok) {
+      const errorText = await elevenLabsResponse.text();
+      console.error(`ElevenLabs API error: ${elevenLabsResponse.status} - ${errorText}`);
+      return new Response(JSON.stringify({ error: `Failed to fetch audio from ElevenLabs: ${elevenLabsResponse.statusText}` }), {
+        status: elevenLabsResponse.status,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
-    // Get the audio as array buffer
-    const audioBuffer = await response.arrayBuffer();
-    
-    // Convert to base64 for safe transport
-    const audioBase64 = btoa(
-      String.fromCharCode(...new Uint8Array(audioBuffer))
-    );
-
-    console.log('Successfully fetched audio, size:', audioBuffer.byteLength, 'bytes');
-
-    return new Response(JSON.stringify({ 
-      audioContent: audioBase64,
-      size: audioBuffer.byteLength
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    // Return the audio stream directly to the client
+    return new Response(elevenLabsResponse.body, {
+      status: 200,
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "audio/mpeg",
+        "Content-Disposition": `attachment; filename="conversation_${conversationId}.mp3"`,
+      },
     });
+
   } catch (error) {
-    console.error('Error in get-conversation-audio function:', error);
+    console.error("Edge function error:", error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
