@@ -166,13 +166,28 @@ export function CampaignDetails({
 
   const downloadCallRecording = async (conversationId: string) => {
     try {
-      // Use the actual Supabase project URL to get audio
-      const url = `https://opmgrupbwdubxxvpsjng.supabase.co/functions/v1/get-conversation-audio`;
+      // Use Supabase client to invoke the edge function with proper authentication
+      const { data, error } = await supabase.functions.invoke('get-conversation-audio', {
+        body: { conversationId }
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Failed to fetch audio');
+      }
+
+      // The function returns the audio stream directly, so we need to handle it as blob
+      // Since supabase.functions.invoke doesn't handle binary data well, let's use fetch with auth headers
+      const { data: { session } } = await supabase.auth.getSession();
       
-      const response = await fetch(url, {
+      if (!session) {
+        throw new Error('User not authenticated');
+      }
+
+      const response = await fetch(`https://opmgrupbwdubxxvpsjng.supabase.co/functions/v1/get-conversation-audio`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ conversationId })
       });
@@ -213,12 +228,17 @@ export function CampaignDetails({
 
   const playAudio = async (conversationId: string) => {
     try {
-      const url = `https://opmgrupbwdubxxvpsjng.supabase.co/functions/v1/get-conversation-audio`;
+      const { data: { session } } = await supabase.auth.getSession();
       
-      const response = await fetch(url, {
+      if (!session) {
+        throw new Error('User not authenticated');
+      }
+
+      const response = await fetch(`https://opmgrupbwdubxxvpsjng.supabase.co/functions/v1/get-conversation-audio`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ conversationId })
       });
