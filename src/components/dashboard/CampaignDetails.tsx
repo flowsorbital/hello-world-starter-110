@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import { format } from "date-fns";
 import * as XLSX from 'xlsx';
+import { useToast } from "@/hooks/use-toast";
 
 interface ConversationDetail {
   id: string;
@@ -46,6 +47,7 @@ export function CampaignDetails({
   onBack,
   isLoading
 }: CampaignDetailsProps) {
+  const { toast } = useToast();
   const [selectedTranscript, setSelectedTranscript] = useState<ConversationDetail | null>(null);
   const [selectedEvaluation, setSelectedEvaluation] = useState<ConversationDetail | null>(null);
   const [selectedDataCollection, setSelectedDataCollection] = useState<ConversationDetail | null>(null);
@@ -162,22 +164,28 @@ export function CampaignDetails({
     XLSX.writeFile(wb, `${campaignName}_call_details.xlsx`);
   };
 
-  const playCallRecording = async (conversationId: string) => {
+  const downloadCallRecording = async (conversationId: string) => {
     try {
-      // Call the ElevenLabs audio endpoint
-      const response = await fetch(`https://api.elevenlabs.io/v1/convai/conversations/${conversationId}/audio`, {
-        method: 'GET',
-        headers: {
-          'xi-api-key': Deno.env.get('ELEVENLABS_API_KEY'),
-        },
+      // Call the Supabase edge function to get audio
+      const { data, error } = await supabase.functions.invoke('get-conversation-audio', {
+        body: { conversationId }
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch audio');
+      if (error) {
+        throw new Error(error.message || 'Failed to fetch audio');
       }
 
-      // Create blob from response
-      const audioBlob = await response.blob();
+      if (!data.audioContent) {
+        throw new Error('No audio content received');
+      }
+
+      // Convert base64 to blob
+      const audioBytes = atob(data.audioContent);
+      const audioArray = new Uint8Array(audioBytes.length);
+      for (let i = 0; i < audioBytes.length; i++) {
+        audioArray[i] = audioBytes.charCodeAt(i);
+      }
+      const audioBlob = new Blob([audioArray], { type: 'audio/mpeg' });
       const audioUrl = URL.createObjectURL(audioBlob);
 
       // Create download link
@@ -188,16 +196,10 @@ export function CampaignDetails({
       downloadLink.click();
       document.body.removeChild(downloadLink);
 
-      // Auto-play the audio
-      const audio = new Audio(audioUrl);
-      audio.play().catch(error => {
-        console.error('Error playing audio:', error);
+      toast({
+        title: "Audio Downloaded",
+        description: "Call recording has been downloaded successfully.",
       });
-
-      // Clean up the object URL after a delay
-      setTimeout(() => {
-        URL.revokeObjectURL(audioUrl);
-      }, 1000);
 
     } catch (error: any) {
       console.error('Error playing audio:', error);
@@ -302,19 +304,15 @@ export function CampaignDetails({
                       </div>
                     </TableCell>
                     <TableCell>
-                      {conversation.has_audio ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => playCallRecording(conversation.conversation_id)}
-                          className="gap-1"
-                        >
-                          <Volume2 className="h-4 w-4" />
-                          Listen
-                        </Button>
-                      ) : (
-                        <span className="text-muted-foreground text-sm">No audio</span>
-                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => downloadCallRecording(conversation.conversation_id)}
+                        className="gap-1"
+                      >
+                        <Volume2 className="h-4 w-4" />
+                        Download Audio
+                      </Button>
                     </TableCell>
                     <TableCell>
                       {conversation.analysis?.evaluation_criteria_results ? (
