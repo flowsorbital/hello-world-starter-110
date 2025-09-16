@@ -11,19 +11,24 @@ serve(async (req) => {
   }
 
   try {
+    console.log("get conv audio Function started.");
     const { conversationId } = await req.json();
 
     if (!conversationId) {
+      console.error("Error: Missing conversationId");
       return new Response(JSON.stringify({ error: "conversationId is required" }), {
         status: 400,
         headers: { "Content-Type": "application/json" },
       });
     }
 
+    console.log(`Received request for conversation ID: ${conversationId}`);
+
     // Get the ElevenLabs API key from a Supabase Secret
     const elevenLabsApiKey = Deno.env.get("ELEVENLABS_API_KEY");
 
     if (!elevenLabsApiKey) {
+      console.error("Error: ElevenLabs API key not configured");
       return new Response(JSON.stringify({ error: "ElevenLabs API key not configured" }), {
         status: 500,
         headers: { "Content-Type": "application/json" },
@@ -37,6 +42,8 @@ serve(async (req) => {
       },
     });
 
+    console.log(`ElevenLabs API response status: ${elevenLabsResponse.status}`);
+
     if (!elevenLabsResponse.ok) {
       const errorText = await elevenLabsResponse.text();
       console.error(`ElevenLabs API error: ${elevenLabsResponse.status} - ${errorText}`);
@@ -46,7 +53,16 @@ serve(async (req) => {
       });
     }
 
+    if (!elevenLabsResponse.body) {
+      console.error("Error: ElevenLabs response body is null or undefined.");
+      return new Response(JSON.stringify({ error: "No audio stream available." }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Return the audio stream directly to the client
+    console.log("Streaming audio to client.");
     return new Response(elevenLabsResponse.body, {
       status: 200,
       headers: {
