@@ -107,7 +107,7 @@ serve(async (req) => {
       console.log('batch_call_recipient_id:', conversationData.metadata.batch_call?.batch_call_recipient_id);
       // Try to find user_id from recipient record, but don't fail if not found
       let userId = null;
-      let compaignId = null;
+      let campaignId = null;
 
       // If no user_id found from recipient, try to find from batch_calls table
       if (conversationData.metadata.batch_call?.batch_call_id) {
