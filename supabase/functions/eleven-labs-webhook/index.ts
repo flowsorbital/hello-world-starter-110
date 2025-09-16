@@ -118,9 +118,9 @@ serve(async (req) => {
           .maybeSingle();
         
         userId = batchRecord?.user_id;
-        compaignId = batchRecord?.campaign_id
+        campaignId = batchRecord?.campaign_id
         console.log('Found user_id from batch_calls:', userId);
-        console.log('Found compaignId from batch_calls:', compaignId);
+        console.log('Found campaignId from batch_calls:', campaignId);
       }
 
       if (!userId) {
