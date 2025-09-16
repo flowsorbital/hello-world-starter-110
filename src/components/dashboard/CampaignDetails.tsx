@@ -168,7 +168,7 @@ export function CampaignDetails({
       const response = await fetch(`https://api.elevenlabs.io/v1/convai/conversations/${conversationId}/audio`, {
         method: 'GET',
         headers: {
-          'xi-api-key': process.env.REACT_APP_ELEVENLABS_API_KEY || '',
+          'xi-api-key': Deno.env.get('ELEVENLABS_API_KEY'),
         },
       });
 

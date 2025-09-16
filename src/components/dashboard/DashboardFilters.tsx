@@ -1,4 +1,5 @@
 import { useState } from "react";
+import * as React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -21,6 +22,7 @@ export function DashboardFilters({
 }: DashboardFiltersProps) {
   const [isCampaignDropdownOpen, setIsCampaignDropdownOpen] = useState(false);
   const [campaignSearchQuery, setCampaignSearchQuery] = useState("");
+  const [tempSelectedCampaigns, setTempSelectedCampaigns] = useState<string[]>(selectedCampaigns);
 
   const filteredCampaigns = campaigns.filter(campaign =>
     campaign.name.toLowerCase().includes(campaignSearchQuery.toLowerCase())
@@ -28,11 +30,11 @@ export function DashboardFilters({
 
   const handleCampaignToggle = (campaignId: string) => {
     if (campaignId === 'all') {
-      onCampaignChange(['all']);
+      setTempSelectedCampaigns(['all']);
       return;
     }
 
-    let newSelected = [...selectedCampaigns];
+    let newSelected = [...tempSelectedCampaigns];
     if (newSelected.includes('all')) {
       newSelected = newSelected.filter(id => id !== 'all');
     }
@@ -47,7 +49,20 @@ export function DashboardFilters({
       newSelected = ['all'];
     }
 
-    onCampaignChange(newSelected);
+    setTempSelectedCampaigns(newSelected);
+  };
+
+  const applyFilters = () => {
+    onCampaignChange(tempSelectedCampaigns);
+    setIsCampaignDropdownOpen(false);
+  };
+
+  const handleDropdownClose = (open: boolean) => {
+    if (!open) {
+      // Apply filters when dropdown closes
+      applyFilters();
+    }
+    setIsCampaignDropdownOpen(open);
   };
 
   const getSelectedCampaignText = () => {
@@ -61,6 +76,11 @@ export function DashboardFilters({
     return `${selectedCampaigns.length} campaigns selected`;
   };
 
+  // Update temp selection when selectedCampaigns prop changes
+  React.useEffect(() => {
+    setTempSelectedCampaigns(selectedCampaigns);
+  }, [selectedCampaigns]);
+
   return (
     <Card className="shadow-soft border-card-border">
       <CardContent className="p-4">
@@ -69,10 +89,10 @@ export function DashboardFilters({
             <Filter className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm font-medium text-foreground">Filters:</span>
           </div>
-          
+
           <div className="flex flex-col sm:flex-row gap-2 items-end lg:items-center">
             {/* Campaign Multi-Select Dropdown */}
-            <Popover open={isCampaignDropdownOpen} onOpenChange={setIsCampaignDropdownOpen}>
+            <Popover open={isCampaignDropdownOpen} onOpenChange={handleDropdownClose}>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
@@ -94,10 +114,10 @@ export function DashboardFilters({
                   </div>
                 </div>
                 <div className="max-h-64 overflow-y-auto p-2">
-                  <div className="flex items-center space-x-2 p-2 hover:bg-muted/50 rounded cursor-pointer" 
+                  <div className="flex items-center space-x-2 p-2 hover:bg-muted/50 rounded cursor-pointer"
                        onClick={() => handleCampaignToggle('all')}>
-                    <Checkbox 
-                      checked={selectedCampaigns.includes('all')}
+                    <Checkbox
+                      checked={tempSelectedCampaigns.includes('all')}
                       className="h-4 w-4"
                     />
                     <span className="text-sm font-medium">All Campaigns</span>
@@ -108,8 +128,8 @@ export function DashboardFilters({
                       className="flex items-center space-x-2 p-2 hover:bg-muted/50 rounded cursor-pointer"
                       onClick={() => handleCampaignToggle(campaign.id)}
                     >
-                      <Checkbox 
-                        checked={selectedCampaigns.includes(campaign.id)}
+                      <Checkbox
+                        checked={tempSelectedCampaigns.includes(campaign.id)}
                         className="h-4 w-4"
                       />
                       <span className="text-sm truncate">{campaign.name}</span>
