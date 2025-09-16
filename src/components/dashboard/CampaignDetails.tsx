@@ -164,11 +164,93 @@ export function CampaignDetails({
     XLSX.writeFile(wb, `${campaignName}_call_details.xlsx`);
   };
 
-  // New function to download the audio using a direct URL
-  const downloadCallRecording = (conversationId: string) => {
-    // IMPORTANT: Replace <YOUR_PROJECT_ID> with your actual Supabase project ID
-    const url = `https://<YOUR_PROJECT_ID>.supabase.co/functions/v1/get-conversation-audio?conversationId=${conversationId}`;
-    window.open(url, '_blank');
+  const downloadCallRecording = async (conversationId: string) => {
+    try {
+      // Use the actual Supabase project URL to get audio
+      const url = `https://opmgrupbwdubxxvpsjng.supabase.co/functions/v1/get-conversation-audio`;
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ conversationId })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      // Get the audio blob
+      const audioBlob = await response.blob();
+      
+      // Create a download link
+      const downloadUrl = URL.createObjectURL(audioBlob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `conversation_${conversationId}.mp3`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Clean up the URL object
+      URL.revokeObjectURL(downloadUrl);
+
+      toast({
+        title: "Audio Downloaded",
+        description: "Call recording has been downloaded successfully.",
+      });
+
+    } catch (error: any) {
+      console.error('Error downloading audio:', error);
+      toast({
+        title: "Download Failed",
+        description: "Failed to download call recording. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const playAudio = async (conversationId: string) => {
+    try {
+      const url = `https://opmgrupbwdubxxvpsjng.supabase.co/functions/v1/get-conversation-audio`;
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ conversationId })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      
+      audio.play().catch(console.error);
+      
+      // Clean up when audio ends
+      audio.addEventListener('ended', () => {
+        URL.revokeObjectURL(audioUrl);
+      });
+
+      toast({
+        title: "Playing Audio",
+        description: "Call recording is now playing.",
+      });
+
+    } catch (error: any) {
+      console.error('Error playing audio:', error);
+      toast({
+        title: "Playback Failed",
+        description: "Failed to play call recording. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   if (isLoading) {
@@ -254,6 +336,16 @@ export function CampaignDetails({
                       </div>
                     </TableCell>
                     <TableCell>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => playAudio(conversation.conversation_id)}
+                          className="gap-1"
+                        >
+                          <Volume2 className="h-4 w-4" />
+                          Play
+                        </Button>
                         <Button
                           variant="outline"
                           size="sm"
@@ -263,6 +355,7 @@ export function CampaignDetails({
                           <Download className="h-4 w-4" />
                           Download
                         </Button>
+                      </div>
                     </TableCell>
                     <TableCell>
                       {conversation.analysis?.evaluation_criteria_results ? (
