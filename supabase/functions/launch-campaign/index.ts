@@ -14,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    const { campaignId, callName, agentId, phoneNumberId, scheduledTimeUnix, recipients } = await req.json();
+    const { campaignId, callName, agentId, phoneNumberId, scheduledTimeUnix, recipients, contactsWithFields } = await req.json();
     
     const elevenlabsApiKey = Deno.env.get('ELEVENLABS_API_KEY');
     
@@ -43,8 +43,43 @@ serve(async (req) => {
       agent_id: agentId,
       agent_phone_number_id: phoneNumberId,
       scheduled_time_unix: scheduledTimeUnix,
-      recipients: recipients
+      recipients: recipients,
+      contactsWithFields: contactsWithFields
     });
+
+    // Prepare ElevenLabs API payload
+    const elevenlabsPayload = {
+      call_name: callName,
+      agent_id: agentId,
+      agent_phone_number_id: phoneNumberId,
+      scheduled_time_unix: scheduledTimeUnix,
+      recipients: contactsWithFields ? contactsWithFields.map((contact: any) => {
+        // Extract dynamic variables from contact, excluding phone_number
+        const dynamicVariables: any = {};
+        
+        // Add name if available
+        if (contact.name) {
+          dynamicVariables.name = contact.name;
+        }
+        
+        // Add all other fields except phone, name, and id
+        Object.keys(contact).forEach(key => {
+          if (!['phone', 'name', 'id'].includes(key) && contact[key]) {
+            dynamicVariables[key] = contact[key];
+          }
+        });
+        
+        return {
+          phone_number: contact.phone,
+          conversation_initiation_client_data: {
+            dynamic_variables: dynamicVariables
+          }
+        };
+      }) : recipients.map((phone: string) => ({ phone_number: phone }))
+    };
+
+    // Log the exact payload being sent to ElevenLabs
+    console.log('ElevenLabs API payload:', JSON.stringify(elevenlabsPayload, null, 2));
 
     const response = await fetch('https://api.elevenlabs.io/v1/convai/batch-calling/submit', {
       method: 'POST',
@@ -52,13 +87,7 @@ serve(async (req) => {
         'xi-api-key': elevenlabsApiKey,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        call_name: callName,
-        agent_id: agentId,
-        agent_phone_number_id: phoneNumberId,
-        scheduled_time_unix: scheduledTimeUnix,
-        recipients: recipients.map((phone: string) => ({ phone_number: phone }))
-      }),
+      body: JSON.stringify(elevenlabsPayload),
     });
 
     if (!response.ok) {

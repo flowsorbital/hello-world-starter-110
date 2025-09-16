@@ -254,6 +254,13 @@ export default function RunCampaign() {
       const scheduledTimeUnix = Math.floor(startDateTime.getTime() / 1000);
       const recipients = contacts.map(contact => contact.phone);
 
+      // Prepare contacts with all fields for dynamic variables (excluding phone number)
+      const contactsWithFields = contacts.map(contact => ({
+        phone: contact.phone,
+        name: contact.name,
+        ...contact // This includes all additional fields from CSV or manual entry
+      }));
+
       // Launch campaign via ElevenLabs API
       const { data: launchResult, error: launchError } = await supabase.functions.invoke('launch-campaign', {
         body: {
@@ -262,7 +269,8 @@ export default function RunCampaign() {
           agentId: selectedAgent,
           phoneNumberId: selectedPhoneId,
           scheduledTimeUnix,
-          recipients
+          recipients,
+          contactsWithFields // Pass contacts with all their fields for dynamic variables
         }
       });
 

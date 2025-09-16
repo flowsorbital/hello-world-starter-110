@@ -105,19 +105,22 @@ serve(async (req) => {
       const conversationData = webhookData.data; //conv_6501k4yxfg2ce8rawe5dew8dzy0h
       console.log('Processing conversation:', conversationData.conversation_id);
       console.log('batch_call_recipient_id:', conversationData.metadata.batch_call?.batch_call_recipient_id);
+      // Try to find user_id from recipient record, but don't fail if not found
       let userId = null;
-      let campaignId = null;
+      let compaignId = null;
+
+      // If no user_id found from recipient, try to find from batch_calls table
       if (conversationData.metadata.batch_call?.batch_call_id) {
         const { data: batchRecord } = await supabase
           .from('batch_calls')
-          .select('user_id, campaign_id')
+          .select('user_id,campaign_id')
           .eq('batch_id', conversationData.metadata.batch_call.batch_call_id)
           .maybeSingle();
         
         userId = batchRecord?.user_id;
-        campaignId = batchRecord?.campaign_id
+        compaignId = batchRecord?.campaign_id
         console.log('Found user_id from batch_calls:', userId);
-        console.log('Found campaignId from batch_calls:', campaignId);
+        console.log('Found compaignId from batch_calls:', compaignId);
       }
 
       if (!userId) {
@@ -128,16 +131,29 @@ serve(async (req) => {
         });
       }
 
+      // Extract dynamic variables from conversation initiation client data for contact name
+      const dynamicVariables = conversationData.conversation_initiation_client_data?.dynamic_variables || {};
+      const contactName = dynamicVariables.name || conversationData.contact_name || null;
+      
+      console.log('Dynamic variables:', JSON.stringify(dynamicVariables, null, 2));
+      console.log('Resolved contact name:', contactName);
+
+      // Enhanced metadata with dynamic variables
+      const enhancedMetadata = {
+        ...conversationData.metadata || {},
+        dynamic_variables: dynamicVariables
+      };
+
       // Step 1: Upsert the conversation record.
       const { error: conversationUpsertError } = await supabase
         .from('conversations')
         .upsert({
           user_id: userId,
-		  campaign_id: campaignId,
+          campaign_id: campaignId,
           conversation_id: conversationData.conversation_id,
           agent_id: conversationData.agent_id,
           phone_number: conversationData.metadata.phone_call?.external_number || null,
-          contact_name: conversationData.contact_name || null,
+          contact_name: contactName,
           status: conversationData.status,
           call_successful: conversationData.analysis?.call_successful || null,
           call_duration_secs: conversationData.metadata?.call_duration_secs || 0,
@@ -146,7 +162,7 @@ serve(async (req) => {
           accepted_time_unix: conversationData.metadata?.accepted_time_unix_secs || null,
           conversation_summary: conversationData.analysis?.transcript_summary || null,
           analysis: conversationData.analysis || {},
-          metadata: conversationData.metadata || {},
+          metadata: enhancedMetadata,
           has_audio: conversationData.has_audio || false,
           elevenlabs_batch_id: conversationData.metadata.batch_call?.batch_call_id || null,
           recipient_id: conversationData.metadata.batch_call?.batch_call_recipient_id || null,

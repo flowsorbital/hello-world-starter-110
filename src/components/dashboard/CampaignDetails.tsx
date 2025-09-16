@@ -126,7 +126,7 @@ export function CampaignDetails({
     // Prepare data for Excel export
     const excelData = conversations.map(conversation => ({
       'Phone Number': conversation.phone_number || 'N/A',
-      'Name': conversation.contact_name || 'Unknown',
+      'Name': conversation.metadata?.dynamic_variables?.name || conversation.contact_name || 'Unknown',
       'Call Status': conversation.call_successful || 'Unknown',
       'Date': formatDateOnly(conversation.start_time_unix),
       'Start Time': formatTimeOnly(conversation.start_time_unix),
@@ -212,7 +212,7 @@ export function CampaignDetails({
                       {conversation.phone_number || 'N/A'}
                     </TableCell>
                     <TableCell>
-                      {conversation.contact_name || 'Unknown'}
+                      {conversation.metadata?.dynamic_variables?.name || conversation.contact_name || 'Unknown'}
                     </TableCell>
                     <TableCell>
                       {getCallStatusBadge(conversation.call_successful)}
