@@ -164,61 +164,11 @@ export function CampaignDetails({
     XLSX.writeFile(wb, `${campaignName}_call_details.xlsx`);
   };
 
-  const downloadCallRecording = async (conversationId: string) => {
-    try {
-      // Call the Supabase edge function to get audio
-      const { data, error } = await supabase.functions.invoke('get-conversation-audio', {
-        body: { conversationId }
-      });
-
-      if (error) {
-        throw new Error(error.message || 'Failed to fetch audio');
-      }
-
-      if (!data.audioContent) {
-        throw new Error('No audio content received');
-      }
-
-      // Convert base64 to blob
-      const audioBytes = atob(data.audioContent);
-      const audioArray = new Uint8Array(audioBytes.length);
-      for (let i = 0; i < audioBytes.length; i++) {
-        audioArray[i] = audioBytes.charCodeAt(i);
-      }
-      const audioBlob = new Blob([audioArray], { type: 'audio/mpeg' });
-      const audioUrl = URL.createObjectURL(audioBlob);
-
-      // Create download link
-      const downloadLink = document.createElement('a');
-      downloadLink.href = audioUrl;
-      downloadLink.download = `call_recording_${conversationId}.mp3`;
-      document.body.appendChild(downloadLink);
-      downloadLink.click();
-      document.body.removeChild(downloadLink);
-
-      toast({
-        title: "Audio Downloaded",
-        description: "Call recording has been downloaded successfully.",
-      });
-
-    } catch (error: any) {
-      console.error('Error playing audio:', error);
-      // Fallback: try using Supabase function if direct API fails
-      try {
-        const { data, error: funcError } = await supabase.functions.invoke('get-conversation-audio', {
-          body: { conversationId }
-        });
-
-        if (funcError) throw funcError;
-
-        if (data?.audioUrl) {
-          const audio = new Audio(data.audioUrl);
-          audio.play();
-        }
-      } catch (fallbackError) {
-        console.error('Fallback audio fetch also failed:', fallbackError);
-      }
-    }
+  // New function to download the audio using a direct URL
+  const downloadCallRecording = (conversationId: string) => {
+    // IMPORTANT: Replace <YOUR_PROJECT_ID> with your actual Supabase project ID
+    const url = `https://<YOUR_PROJECT_ID>.supabase.co/functions/v1/get-conversation-audio?conversationId=${conversationId}`;
+    window.open(url, '_blank');
   };
 
   if (isLoading) {
@@ -304,15 +254,15 @@ export function CampaignDetails({
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => downloadCallRecording(conversation.conversation_id)}
-                        className="gap-1"
-                      >
-                        <Volume2 className="h-4 w-4" />
-                        Download Audio
-                      </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => downloadCallRecording(conversation.conversation_id)}
+                          className="gap-1"
+                        >
+                          <Download className="h-4 w-4" />
+                          Download
+                        </Button>
                     </TableCell>
                     <TableCell>
                       {conversation.analysis?.evaluation_criteria_results ? (
