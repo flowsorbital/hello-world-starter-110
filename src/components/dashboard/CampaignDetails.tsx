@@ -30,6 +30,7 @@ interface ConversationDetail {
   has_audio: boolean;
   additional_fields?: any;
   conversation_id: string;
+  dynamic_variables?: any;
 }
 
 interface CampaignDetailsProps {
@@ -314,7 +315,7 @@ export function CampaignDetails({
               <TableHeader>
                 <TableRow>
                   <TableHead>Phone Number</TableHead>
-                  <TableHead>Name</TableHead>
+                  <TableHead>Additional Fields</TableHead>
                   <TableHead>Call Status</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Start Time</TableHead>
@@ -333,7 +334,19 @@ export function CampaignDetails({
                       {conversation.phone_number || 'N/A'}
                     </TableCell>
                     <TableCell>
-                      {conversation.contact_name || 'Unknown'}
+                      {conversation.dynamic_variables && Object.keys(conversation.dynamic_variables).length > 0 ? (
+                        <div className="max-w-xs space-y-1">
+                          {Object.entries(conversation.dynamic_variables)
+                            .filter(([key]) => !key.startsWith('system__'))
+                            .map(([key, value]) => (
+                              <div key={key} className="text-xs">
+                                <span className="font-medium">{key}:</span> {String(value)}
+                              </div>
+                            ))}
+                        </div>
+                      ) : (
+                        '-'
+                      )}
                     </TableCell>
                     <TableCell>
                       {getCallStatusBadge(conversation.call_successful)}

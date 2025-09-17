@@ -166,7 +166,8 @@ serve(async (req) => {
           has_audio: conversationData.has_audio || false,
           elevenlabs_batch_id: conversationData.metadata.batch_call?.batch_call_id || null,
           recipient_id: conversationData.metadata.batch_call?.batch_call_recipient_id || null,
-          recipient_phone_number: conversationData.metadata.phone_call?.external_number || null
+          recipient_phone_number: conversationData.metadata.phone_call?.external_number || null,
+          dynamic_variables: dynamicVariables
         }, { onConflict: 'conversation_id' });
 
       if (conversationUpsertError) {

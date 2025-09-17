@@ -54,7 +54,7 @@ serve(async (req) => {
       agent_phone_number_id: phoneNumberId,
       scheduled_time_unix: scheduledTimeUnix,
       recipients: contactsWithFields ? contactsWithFields.map((contact: any) => {
-        // Extract dynamic variables from contact, excluding phone_number
+        // Extract dynamic variables from contact's additional_fields
         const dynamicVariables: any = {};
         
         // Add name if available
@@ -62,19 +62,27 @@ serve(async (req) => {
           dynamicVariables.name = contact.name;
         }
         
-        // Add all other fields except phone, name, and id
-        Object.keys(contact).forEach(key => {
-          if (!['phone', 'name', 'id'].includes(key) && contact[key]) {
-            dynamicVariables[key] = contact[key];
-          }
-        });
+        // Add all fields from additional_fields if available
+        if (contact.additional_fields && typeof contact.additional_fields === 'object') {
+          Object.keys(contact.additional_fields).forEach(key => {
+            if (contact.additional_fields[key] !== null && contact.additional_fields[key] !== undefined && contact.additional_fields[key] !== '') {
+              dynamicVariables[key] = contact.additional_fields[key];
+            }
+          });
+        }
         
-        return {
-          phone_number: contact.phone,
-          conversation_initiation_client_data: {
-            dynamic_variables: dynamicVariables
-          }
+        // Only include conversation_initiation_client_data if there are dynamic variables
+        const recipient: any = {
+          phone_number: contact.phone
         };
+        
+        if (Object.keys(dynamicVariables).length > 0) {
+          recipient.conversation_initiation_client_data = {
+            dynamic_variables: dynamicVariables
+          };
+        }
+        
+        return recipient;
       }) : recipients.map((phone: string) => ({ phone_number: phone }))
     };
 

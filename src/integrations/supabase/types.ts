@@ -255,14 +255,17 @@ export type Database = {
           conversation_id: string
           conversation_summary: string | null
           created_at: string
+          dynamic_variables: Json | null
+          elevenlabs_batch_id: string | null
           has_audio: boolean | null
           id: string
           metadata: Json | null
           phone_number: string | null
+          recipient_id: string | null
+          recipient_phone_number: string | null
           start_time_unix: number | null
           status: string | null
           total_cost: number | null
-          transcript: Json | null
           updated_at: string
           user_id: string
         }
@@ -277,14 +280,17 @@ export type Database = {
           conversation_id: string
           conversation_summary?: string | null
           created_at?: string
+          dynamic_variables?: Json | null
+          elevenlabs_batch_id?: string | null
           has_audio?: boolean | null
           id?: string
           metadata?: Json | null
           phone_number?: string | null
+          recipient_id?: string | null
+          recipient_phone_number?: string | null
           start_time_unix?: number | null
           status?: string | null
           total_cost?: number | null
-          transcript?: Json | null
           updated_at?: string
           user_id: string
         }
@@ -299,14 +305,17 @@ export type Database = {
           conversation_id?: string
           conversation_summary?: string | null
           created_at?: string
+          dynamic_variables?: Json | null
+          elevenlabs_batch_id?: string | null
           has_audio?: boolean | null
           id?: string
           metadata?: Json | null
           phone_number?: string | null
+          recipient_id?: string | null
+          recipient_phone_number?: string | null
           start_time_unix?: number | null
           status?: string | null
           total_cost?: number | null
-          transcript?: Json | null
           updated_at?: string
           user_id?: string
         }
@@ -318,12 +327,22 @@ export type Database = {
             referencedRelation: "campaigns"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "conversations_elevenlabs_batch_id_fkey"
+            columns: ["elevenlabs_batch_id"]
+            isOneToOne: false
+            referencedRelation: "batch_calls"
+            referencedColumns: ["batch_id"]
+          },
         ]
       }
       profiles: {
         Row: {
+          available_minutes: number
+          call_rate: number
           company: string | null
           created_at: string
+          currency: string
           full_name: string | null
           id: string
           phone: string | null
@@ -331,8 +350,11 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          available_minutes?: number
+          call_rate?: number
           company?: string | null
           created_at?: string
+          currency?: string
           full_name?: string | null
           id?: string
           phone?: string | null
@@ -340,8 +362,11 @@ export type Database = {
           user_id: string
         }
         Update: {
+          available_minutes?: number
+          call_rate?: number
           company?: string | null
           created_at?: string
+          currency?: string
           full_name?: string | null
           id?: string
           phone?: string | null
@@ -349,6 +374,63 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      recipients: {
+        Row: {
+          contact_name: string | null
+          conversation_initiation_client_data: Json | null
+          created_at: string
+          elevenlabs_batch_id: string
+          elevenlabs_conversation_id: string | null
+          elevenlabs_recipient_id: string
+          id: string
+          phone_number: string
+          status: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          contact_name?: string | null
+          conversation_initiation_client_data?: Json | null
+          created_at?: string
+          elevenlabs_batch_id: string
+          elevenlabs_conversation_id?: string | null
+          elevenlabs_recipient_id: string
+          id?: string
+          phone_number: string
+          status?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          contact_name?: string | null
+          conversation_initiation_client_data?: Json | null
+          created_at?: string
+          elevenlabs_batch_id?: string
+          elevenlabs_conversation_id?: string | null
+          elevenlabs_recipient_id?: string
+          id?: string
+          phone_number?: string
+          status?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipients_elevenlabs_batch_id_fkey"
+            columns: ["elevenlabs_batch_id"]
+            isOneToOne: false
+            referencedRelation: "batch_calls"
+            referencedColumns: ["batch_id"]
+          },
+          {
+            foreignKeyName: "recipients_elevenlabs_conversation_id_fkey"
+            columns: ["elevenlabs_conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["conversation_id"]
+          },
+        ]
       }
       support_tickets: {
         Row: {
@@ -382,6 +464,35 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      transcripts: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          full_transcript: Json | null
+          id: string
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          full_transcript?: Json | null
+          id?: string
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          full_transcript?: Json | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transcripts_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: true
+            referencedRelation: "conversations"
+            referencedColumns: ["conversation_id"]
+          },
+        ]
       }
     }
     Views: {
