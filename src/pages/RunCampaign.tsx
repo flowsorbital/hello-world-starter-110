@@ -62,6 +62,7 @@ export default function RunCampaign() {
   const [isLaunched, setIsLaunched] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [savedCampaignId, setSavedCampaignId] = useState<string | null>(null);
+  const [isLaunching, setIsLaunching] = useState(false);
   
   const { user } = useAuth();
   const { profile } = useProfile();
@@ -161,9 +162,10 @@ export default function RunCampaign() {
         .insert(
           parsedContacts.map(contact => ({
             user_id: user.id,
+            name: contact.name,
             phone: contact.phone,
             additional_fields: Object.fromEntries(
-              Object.entries(contact).filter(([key]) => !['id', 'phone'].includes(key))
+              Object.entries(contact).filter(([key]) => !['id', 'name', 'phone'].includes(key))
             ),
           }))
         );
@@ -245,6 +247,7 @@ export default function RunCampaign() {
   const handleLaunchCampaign = async () => {
     if (!user || !selectedAgent || !savedCampaignId) return;
 
+    setIsLaunching(true);
     try {
       const startDateTime = campaignStart === 'Custom' && startDate && startTime 
         ? new Date(`${startDate.toISOString().split('T')[0]}T${startTime}:00`)
@@ -286,6 +289,8 @@ export default function RunCampaign() {
         description: "Failed to launch campaign",
         variant: "destructive",
       });
+    } finally {
+      setIsLaunching(false);
     }
   };
 
@@ -529,10 +534,19 @@ export default function RunCampaign() {
                   <Button 
                     onClick={handleLaunchCampaign}
                     className="w-full h-12 text-lg flex items-center justify-center gap-3"
-                    disabled={!selectedAgent || contacts.length === 0 || !campaignName || !savedCampaignId}
+                    disabled={!selectedAgent || contacts.length === 0 || !campaignName || !savedCampaignId || isLaunching}
                   >
-                    <Play className="h-5 w-5" />
-                    Launch Campaign
+                    {isLaunching ? (
+                      <>
+                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                        Launching...
+                      </>
+                    ) : (
+                      <>
+                        <Play className="h-5 w-5" />
+                        Launch Campaign
+                      </>
+                    )}
                   </Button>
                 )}
               </div>

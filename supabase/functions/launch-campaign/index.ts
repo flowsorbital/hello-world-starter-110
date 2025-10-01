@@ -197,19 +197,17 @@ serve(async (req) => {
           
           // Start polling in background
           console.log('Starting background polling for batch:', batchIdToUse);
-          EdgeRuntime.waitUntil(
-            fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/poll-batch-status`, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                batchId: batchIdToUse,
-                userId: campaignData.user_id
-              })
-            }).catch(err => console.error('Error starting polling:', err))
-          );
+          fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/poll-batch-status`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              batchId: batchIdToUse,
+              userId: campaignData.user_id
+            })
+          }).catch(err => console.error('Error starting polling:', err));
         }
       }
     }
@@ -217,7 +215,7 @@ serve(async (req) => {
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in launch-campaign function:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,

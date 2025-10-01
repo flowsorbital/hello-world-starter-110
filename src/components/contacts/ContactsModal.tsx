@@ -104,9 +104,10 @@ export function ContactsModal({ isOpen, onClose, onSave, campaignId }: ContactsM
             .from('contacts')
             .insert({
               user_id: user.id,
+              name: contact.name,
               phone: contact.phone,
               additional_fields: Object.fromEntries(
-                Object.entries(contact).filter(([key]) => !['id', 'phone'].includes(key))
+                Object.entries(contact).filter(([key]) => !['id', 'name', 'phone'].includes(key))
               ),
             })
             .select()
