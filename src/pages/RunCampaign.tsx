@@ -66,7 +66,7 @@ export default function RunCampaign() {
   const [savedCampaignId, setSavedCampaignId] = useState<string | null>(null);
   const [isLaunching, setIsLaunching] = useState(false);
   const [showExitDialog, setShowExitDialog] = useState(false);
-  
+
   const { user } = useAuth();
   const { profile } = useProfile();
   const { toast } = useToast();
@@ -214,10 +214,9 @@ export default function RunCampaign() {
         .insert(
           parsedContacts.map(contact => ({
             user_id: user.id,
-            name: contact.name || '',
             phone: contact.phone,
             additional_fields: Object.fromEntries(
-              Object.entries(contact).filter(([key]) => !['id', 'phone', 'name'].includes(key))
+              Object.entries(contact).filter(([key]) => !['id', 'phone'].includes(key))
             ),
           }))
         );
@@ -307,9 +306,9 @@ export default function RunCampaign() {
           .single();
 
         if (error) throw error;
-        
+
         setSavedCampaignId(data.id);
-        
+
         // Link existing contacts to campaign
         if (contacts.length > 0) {
           const campaignContacts = contacts.map(contact => ({
