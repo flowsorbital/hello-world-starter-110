@@ -2,8 +2,8 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Eye, Phone, Target, Clock, IndianRupee } from "lucide-react";
-import { formatCost } from "@/utils/currency";
+import { Eye, Phone, Target, Clock, IndianRupee, DollarSign } from "lucide-react";
+import { formatCurrency } from "@/utils/currency";
 import {
   Table,
   TableBody,
@@ -30,9 +30,10 @@ interface CampaignsListProps {
   campaigns: Campaign[];
   onViewDetails: (campaignId: string) => void;
   isLoading?: boolean;
+  userCurrency?: string;
 }
 
-export function CampaignsList({ campaigns, onViewDetails, isLoading }: CampaignsListProps) {
+export function CampaignsList({ campaigns, onViewDetails, isLoading, userCurrency = 'INR' }: CampaignsListProps) {
   const getStatusBadge = (status: string) => {
     const statusMap = {
       'Draft': { variant: 'secondary' as const, label: 'Draft', className: '' },
@@ -43,6 +44,17 @@ export function CampaignsList({ campaigns, onViewDetails, isLoading }: Campaigns
     
     const statusInfo = statusMap[status as keyof typeof statusMap] || { variant: 'secondary' as const, label: status, className: '' };
     return <Badge variant={statusInfo.variant} className={statusInfo.className}>{statusInfo.label}</Badge>;
+  };
+
+  const getCurrencyIcon = (currency: string) => {
+    switch (currency?.toLowerCase()) {
+      case 'inr':
+        return <IndianRupee className="h-4 w-4 text-muted-foreground" />;
+      case 'usd':
+        return <DollarSign className="h-4 w-4 text-muted-foreground" />;
+      default:
+        return <DollarSign className="h-4 w-4 text-muted-foreground" />;
+    }
   };
 
 
@@ -115,7 +127,7 @@ export function CampaignsList({ campaigns, onViewDetails, isLoading }: Campaigns
                 <TableHead className="text-center">Connected</TableHead>
                 <TableHead className="text-center">Success Rate</TableHead>
                 <TableHead className="text-right">Total Cost</TableHead>
-                <TableHead className="text-center">Duration</TableHead>
+                <TableHead className="text-center">Total Minutes</TableHead>
                 <TableHead className="text-center">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -172,14 +184,14 @@ export function CampaignsList({ campaigns, onViewDetails, isLoading }: Campaigns
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <IndianRupee className="h-4 w-4 text-muted-foreground" />
-                      {formatCost(campaign.totalCost)}
+                      {getCurrencyIcon(userCurrency)}
+                      {formatCurrency(campaign.totalCost, userCurrency)}
                     </div>
                   </TableCell>
                   <TableCell className="text-center">
                     <div className="flex items-center justify-center gap-1">
                       <Clock className="h-4 w-4 text-muted-foreground" />
-                      {formatDuration(campaign.totalMinutes * 60)}
+                      {campaign.totalMinutes} min
                     </div>
                   </TableCell>
                   <TableCell className="text-center">

@@ -161,10 +161,9 @@ export default function RunCampaign() {
         .insert(
           parsedContacts.map(contact => ({
             user_id: user.id,
-            name: contact.name,
             phone: contact.phone,
             additional_fields: Object.fromEntries(
-              Object.entries(contact).filter(([key]) => !['id', 'name', 'phone'].includes(key))
+              Object.entries(contact).filter(([key]) => !['id', 'phone'].includes(key))
             ),
           }))
         );
@@ -257,7 +256,6 @@ export default function RunCampaign() {
       // Prepare contacts with all fields for dynamic variables (excluding phone number)
       const contactsWithFields = contacts.map(contact => ({
         phone: contact.phone,
-        name: contact.name,
         ...contact // This includes all additional fields from CSV or manual entry
       }));
 

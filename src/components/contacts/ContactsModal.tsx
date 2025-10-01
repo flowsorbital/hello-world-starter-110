@@ -9,7 +9,6 @@ import { useToast } from "@/hooks/use-toast";
 
 interface Contact {
   id: string;
-  name: string;
   phone: string;
   [key: string]: string;
 }
@@ -23,7 +22,7 @@ interface ContactsModalProps {
 
 export function ContactsModal({ isOpen, onClose, onSave, campaignId }: ContactsModalProps) {
   const [contacts, setContacts] = useState<Contact[]>([
-    { id: '1', name: '', phone: '' }
+    { id: '1', phone: '' }
   ]);
   const [customFields, setCustomFields] = useState<string[]>([]);
   const [newFieldName, setNewFieldName] = useState('');
@@ -34,7 +33,6 @@ export function ContactsModal({ isOpen, onClose, onSave, campaignId }: ContactsM
   const addContact = () => {
     const newContact: Contact = { 
       id: Date.now().toString(), 
-      name: '', 
       phone: '',
       ...Object.fromEntries(customFields.map(field => [field, '']))
     };
@@ -70,7 +68,7 @@ export function ContactsModal({ isOpen, onClose, onSave, campaignId }: ContactsM
   };
 
   const handleSave = async () => {
-    const validContacts = contacts.filter(contact => contact.name && contact.phone);
+    const validContacts = contacts.filter(contact => contact.phone && contact.phone.trim() !== '');
     if (validContacts.length === 0 || !user) return;
 
     try {
@@ -87,13 +85,12 @@ export function ContactsModal({ isOpen, onClose, onSave, campaignId }: ContactsM
           .maybeSingle();
 
         if (existingContact) {
-          // Update existing contact
+          // Update existing contact - store all fields except id and phone in additional_fields
           const { error: updateError } = await supabase
             .from('contacts')
             .update({
-              name: contact.name,
               additional_fields: Object.fromEntries(
-                Object.entries(contact).filter(([key]) => !['id', 'name', 'phone'].includes(key))
+                Object.entries(contact).filter(([key]) => !['id', 'phone'].includes(key))
               ),
               updated_at: new Date().toISOString()
             })
@@ -102,15 +99,14 @@ export function ContactsModal({ isOpen, onClose, onSave, campaignId }: ContactsM
           if (updateError) throw updateError;
           processedContacts.push({ ...contact, id: existingContact.id });
         } else {
-          // Insert new contact
+          // Insert new contact - store all fields except id and phone in additional_fields
           const { data: newContact, error: insertError } = await supabase
             .from('contacts')
             .insert({
               user_id: user.id,
-              name: contact.name,
               phone: contact.phone,
               additional_fields: Object.fromEntries(
-                Object.entries(contact).filter(([key]) => !['id', 'name', 'phone'].includes(key))
+                Object.entries(contact).filter(([key]) => !['id', 'phone'].includes(key))
               ),
             })
             .select()
@@ -203,8 +199,7 @@ export function ContactsModal({ isOpen, onClose, onSave, campaignId }: ContactsM
           {/* Contacts Table */}
           <div className="space-y-4">
             <div className="grid grid-cols-12 gap-2 font-medium text-sm">
-              <div className="col-span-4">Name *</div>
-              <div className="col-span-4">Phone Number *</div>
+              <div className="col-span-6">Phone Number *</div>
               {customFields.map(field => (
                 <div key={field} className="col-span-2">{field}</div>
               ))}
@@ -214,13 +209,7 @@ export function ContactsModal({ isOpen, onClose, onSave, campaignId }: ContactsM
             {contacts.map((contact) => (
               <div key={contact.id} className="grid grid-cols-12 gap-2">
                 <Input
-                  className="col-span-4"
-                  placeholder="Full name"
-                  value={contact.name}
-                  onChange={(e) => updateContact(contact.id, 'name', e.target.value)}
-                />
-                <Input
-                  className="col-span-4"
+                  className="col-span-6"
                   placeholder="919999958112"
                   value={contact.phone}
                   onChange={(e) => updateContact(contact.id, 'phone', e.target.value)}

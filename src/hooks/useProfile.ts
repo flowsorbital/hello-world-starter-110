@@ -8,6 +8,9 @@ interface Profile {
   full_name: string | null;
   company: string | null;
   phone: string | null;
+  currency: string;
+  call_rate: number;
+  available_minutes: number;
 }
 
 export function useProfile() {

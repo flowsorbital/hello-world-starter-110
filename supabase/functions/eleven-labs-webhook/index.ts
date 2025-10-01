@@ -2,6 +2,65 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+// Helper function to update campaign status based on batch status
+async function updateCampaignStatus(supabase: any, batchId: string, batchStatus: string) {
+  try {
+    // First, get the campaign_id associated with this batch
+    const { data: batchCallData, error: fetchError } = await supabase
+      .from('batch_calls')
+      .select('campaign_id')
+      .eq('batch_id', batchId)
+      .single();
+
+    if (fetchError) {
+      console.error('Error fetching batch call data:', fetchError);
+      return;
+    }
+
+    if (!batchCallData?.campaign_id) {
+      console.log('No campaign_id found for batch:', batchId);
+      return;
+    }
+
+    let campaignStatus = null;
+    
+    // Map batch status to campaign status
+    switch (batchStatus?.toLowerCase()) {
+      case 'completed':
+      case 'successful':
+      case 'success':
+        campaignStatus = 'Completed';
+        break;
+      case 'failed':
+      case 'error':
+      case 'cancelled':
+        campaignStatus = 'Failed';
+        break;
+      // Don't update campaign status for other statuses (pending, running, etc.)
+    }
+
+    if (campaignStatus) {
+      console.log(`Updating campaign ${batchCallData.campaign_id} status to: ${campaignStatus}`);
+      
+      const { error: campaignError } = await supabase
+        .from('campaigns')
+        .update({
+          status: campaignStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', batchCallData.campaign_id);
+
+      if (campaignError) {
+        console.error('Error updating campaign status:', campaignError);
+      } else {
+        console.log(`Successfully updated campaign status to: ${campaignStatus}`);
+      }
+    }
+  } catch (error) {
+    console.error('Error in updateCampaignStatus:', error);
+  }
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'elevenlabs-signature, content-type',
@@ -224,6 +283,9 @@ serve(async (req) => {
         console.error('Error updating batch status:', batchError);
       } else {
         console.log('Batch status updated successfully');
+        
+        // Update corresponding campaign status
+        await updateCampaignStatus(supabase, batchData.batch_id, batchData.status);
       }
     }
 
