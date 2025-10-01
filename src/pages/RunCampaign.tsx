@@ -162,10 +162,9 @@ export default function RunCampaign() {
         .insert(
           parsedContacts.map(contact => ({
             user_id: user.id,
-            name: contact.name,
             phone: contact.phone,
             additional_fields: Object.fromEntries(
-              Object.entries(contact).filter(([key]) => !['id', 'name', 'phone'].includes(key))
+              Object.entries(contact).filter(([key]) => !['id', 'phone'].includes(key))
             ),
           }))
         );
