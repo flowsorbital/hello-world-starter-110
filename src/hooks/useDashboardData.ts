@@ -93,6 +93,7 @@ export function useDashboardData() {
         .select(`
           *,
           conversations!campaign_id (
+            status,
             call_successful,
             call_duration_secs,
             total_cost,
@@ -119,7 +120,10 @@ export function useDashboardData() {
 
       // Process conversations data for metrics
       const totalCalls = conversationsData?.length || 0;
-      const connectedCalls = conversationsData?.filter(c => c.call_successful === 'success').length || 0;
+      // Count calls that were successfully connected (status is 'done' or 'completed')
+      const connectedCalls = conversationsData?.filter(c => 
+        c.status?.toLowerCase() === 'done' || c.status?.toLowerCase() === 'completed'
+      ).length || 0;
       const successRate = totalCalls > 0 ? (connectedCalls / totalCalls) * 100 : 0;
       
       // Calculate total minutes using new billing logic
@@ -144,7 +148,10 @@ export function useDashboardData() {
       const processedCampaigns: Campaign[] = campaignsData?.map(campaign => {
         const campaignCalls = campaign.conversations || [];
         
-        const campaignConnected = campaignCalls.filter((c: any) => c.call_successful === 'success').length;
+        // Count calls that were successfully connected (status is 'done' or 'completed')
+        const campaignConnected = campaignCalls.filter((c: any) => 
+          c.status?.toLowerCase() === 'done' || c.status?.toLowerCase() === 'completed'
+        ).length;
         const campaignSuccessRate = campaignCalls.length > 0 ? (campaignConnected / campaignCalls.length) * 100 : 0;
         
         // Calculate total minutes using new billing logic: <=60sec = 1min, >60&<=120 = 2min, etc.

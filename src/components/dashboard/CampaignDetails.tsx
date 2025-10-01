@@ -128,13 +128,13 @@ export function CampaignDetails({
   };
 
   const getCallStatusBadge = (status: string) => {
-    // Map call outcome status values (different from evaluation results)
+    // Map call connection status values (done, failed, etc.)
     const statusMap: { [key: string]: { variant: any; label: string; className?: string } } = {
-      'completed': { variant: 'default', label: 'Completed', className: 'bg-blue-100 text-blue-800' },
+      'done': { variant: 'default', label: 'Connected', className: 'bg-green-100 text-green-800' },
+      'completed': { variant: 'default', label: 'Connected', className: 'bg-green-100 text-green-800' },
       'failed': { variant: 'destructive', label: 'Failed' },
       'in_progress': { variant: 'secondary', label: 'In Progress' },
       'queued': { variant: 'secondary', label: 'Queued' },
-      'success': { variant: 'default', label: 'Connected', className: 'bg-green-100 text-green-800' },
       'no_answer': { variant: 'destructive', label: 'No Answer' },
       'busy': { variant: 'destructive', label: 'Busy' },
       'voicemail': { variant: 'secondary', label: 'Voicemail' }
@@ -397,8 +397,8 @@ export function CampaignDetails({
                       )}
                     </TableCell>
                     <TableCell>
-                      {/* Call Status should show call outcome (success, no_answer, busy, etc.) */}
-                      {getCallStatusBadge(conversation.call_successful)}
+                      {/* Call Status should show call connection status (done, failed, busy, etc.) */}
+                      {getCallStatusBadge(conversation.status)}
                     </TableCell>
                     <TableCell>
                       {formatDateOnly(conversation.start_time_unix)}
