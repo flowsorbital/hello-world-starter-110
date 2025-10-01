@@ -14,6 +14,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useProfile } from "@/hooks/useProfile";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { useNavigate } from "react-router-dom";
 
 const steps = [
   "Select Agent",
@@ -63,10 +65,12 @@ export default function RunCampaign() {
   const [showCalendar, setShowCalendar] = useState(false);
   const [savedCampaignId, setSavedCampaignId] = useState<string | null>(null);
   const [isLaunching, setIsLaunching] = useState(false);
+  const [showExitDialog, setShowExitDialog] = useState(false);
   
   const { user } = useAuth();
   const { profile } = useProfile();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (user) {
@@ -128,6 +132,54 @@ export default function RunCampaign() {
     }
   };
 
+  const handleNavigateAway = () => {
+    if (currentStep === 3 && savedCampaignId && !isLaunched) {
+      setShowExitDialog(true);
+    } else {
+      navigate('/dashboard');
+    }
+  };
+
+  const handleDiscardCampaign = async () => {
+    if (!savedCampaignId) return;
+
+    try {
+      // Delete campaign_contact links
+      await supabase
+        .from('campaign_contact')
+        .delete()
+        .eq('campaign_id', savedCampaignId);
+
+      // Delete the campaign
+      await supabase
+        .from('campaigns')
+        .delete()
+        .eq('id', savedCampaignId);
+
+      toast({
+        title: "Campaign Discarded",
+        description: "The draft campaign has been deleted",
+      });
+
+      navigate('/dashboard');
+    } catch (error: any) {
+      console.error('Error discarding campaign:', error);
+      toast({
+        title: "Error",
+        description: "Failed to discard campaign",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSaveForLater = () => {
+    toast({
+      title: "Campaign Saved",
+      description: "Your draft campaign has been saved",
+    });
+    navigate('/dashboard');
+  };
+
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !user) return;
@@ -162,9 +214,10 @@ export default function RunCampaign() {
         .insert(
           parsedContacts.map(contact => ({
             user_id: user.id,
+            name: contact.name || '',
             phone: contact.phone,
             additional_fields: Object.fromEntries(
-              Object.entries(contact).filter(([key]) => !['id', 'phone'].includes(key))
+              Object.entries(contact).filter(([key]) => !['id', 'phone', 'name'].includes(key))
             ),
           }))
         );
@@ -197,42 +250,83 @@ export default function RunCampaign() {
         ? new Date(`${startDate.toISOString().split('T')[0]}T${startTime}:00`)
         : null;
 
-      const { data, error } = await supabase
-        .from('campaigns')
-        .insert({
-          user_id: user.id,
-          agent_id: selectedAgent,
-          name: campaignName,
-          campaign_start: campaignStart,
-          start_date: startDateTime?.toISOString(),
-          phone_number: selectedPhone,
-          phone_number_id: selectedPhoneId,
-          elevenlabs_agent_id: selectedAgent,
-          status: 'Draft',
-        })
-        .select()
-        .single();
+      // Check if we already have a saved campaign (update instead of insert)
+      if (savedCampaignId) {
+        const { error: updateError } = await supabase
+          .from('campaigns')
+          .update({
+            agent_id: selectedAgent,
+            name: campaignName,
+            campaign_start: campaignStart,
+            start_date: startDateTime?.toISOString(),
+            phone_number: selectedPhone,
+            phone_number_id: selectedPhoneId,
+            elevenlabs_agent_id: selectedAgent,
+          })
+          .eq('id', savedCampaignId);
 
-      if (error) throw error;
-      
-      setSavedCampaignId(data.id);
-      
-      // Link existing contacts to campaign
-      if (contacts.length > 0) {
-        const campaignContacts = contacts.map(contact => ({
-          campaign_id: data.id,
-          contact_id: contact.id
-        }));
+        if (updateError) throw updateError;
 
+        // Delete existing campaign_contact links and recreate them
         await supabase
           .from('campaign_contact')
-          .insert(campaignContacts);
-      }
+          .delete()
+          .eq('campaign_id', savedCampaignId);
 
-      toast({
-        title: "Success",
-        description: "Campaign details saved successfully",
-      });
+        if (contacts.length > 0) {
+          const campaignContacts = contacts.map(contact => ({
+            campaign_id: savedCampaignId,
+            contact_id: contact.id
+          }));
+
+          await supabase
+            .from('campaign_contact')
+            .insert(campaignContacts);
+        }
+
+        toast({
+          title: "Success",
+          description: "Campaign details updated successfully",
+        });
+      } else {
+        // Create new campaign
+        const { data, error } = await supabase
+          .from('campaigns')
+          .insert({
+            user_id: user.id,
+            agent_id: selectedAgent,
+            name: campaignName,
+            campaign_start: campaignStart,
+            start_date: startDateTime?.toISOString(),
+            phone_number: selectedPhone,
+            phone_number_id: selectedPhoneId,
+            elevenlabs_agent_id: selectedAgent,
+            status: 'Draft',
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        
+        setSavedCampaignId(data.id);
+        
+        // Link existing contacts to campaign
+        if (contacts.length > 0) {
+          const campaignContacts = contacts.map(contact => ({
+            campaign_id: data.id,
+            contact_id: contact.id
+          }));
+
+          await supabase
+            .from('campaign_contact')
+            .insert(campaignContacts);
+        }
+
+        toast({
+          title: "Success",
+          description: "Campaign details saved successfully",
+        });
+      }
     } catch (error: any) {
       console.error('Error saving campaign:', error);
       toast({
@@ -303,9 +397,19 @@ export default function RunCampaign() {
         <CardHeader>
           <div className="flex items-center justify-between mb-4">
             <CardTitle className="text-2xl font-bold">Run Campaign</CardTitle>
-            <span className="text-sm text-muted-foreground">
-              Step {currentStep + 1} of {steps.length}
-            </span>
+            <div className="flex items-center gap-4">
+              {currentStep === 3 && savedCampaignId && !isLaunched && (
+                <Button
+                  variant="ghost"
+                  onClick={handleNavigateAway}
+                >
+                  Back to Dashboard
+                </Button>
+              )}
+              <span className="text-sm text-muted-foreground">
+                Step {currentStep + 1} of {steps.length}
+              </span>
+            </div>
           </div>
           <div className="space-y-2">
             <Progress value={progress} className="w-full" />
@@ -589,6 +693,25 @@ export default function RunCampaign() {
         onSave={handleManualContacts}
         campaignId={savedCampaignId || undefined}
       />
+
+      <AlertDialog open={showExitDialog} onOpenChange={setShowExitDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Save Your Campaign?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You haven't launched your campaign yet. Would you like to save it as a draft or discard it?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleDiscardCampaign}>
+              Discard Campaign
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleSaveForLater}>
+              Save for Later
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

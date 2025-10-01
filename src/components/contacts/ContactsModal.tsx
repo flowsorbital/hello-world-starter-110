@@ -101,14 +101,15 @@ export function ContactsModal({ isOpen, onClose, onSave, campaignId }: ContactsM
         } else {
           // Insert new contact - store all fields except id and phone in additional_fields
           const { data: newContact, error: insertError } = await supabase
-            .from('contacts')
-            .insert({
-              user_id: user.id,
-              phone: contact.phone,
-              additional_fields: Object.fromEntries(
-                Object.entries(contact).filter(([key]) => !['id', 'phone'].includes(key))
-              ),
-            })
+          .from('contacts')
+          .insert({
+            user_id: user.id,
+            name: contact.name || '',
+            phone: contact.phone,
+            additional_fields: Object.fromEntries(
+              Object.entries(contact).filter(([key]) => !['id', 'phone', 'name'].includes(key))
+            ),
+          })
             .select()
             .single();
 
