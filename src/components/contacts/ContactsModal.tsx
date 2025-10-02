@@ -108,7 +108,7 @@ export function ContactsModal({ isOpen, onClose, onSave, campaignId }: ContactsM
               additional_fields: Object.fromEntries(
                 Object.entries(contact).filter(([key]) => !['id', 'phone'].includes(key))
               ),
-            })
+            } as any) // Type assertion needed as types file hasn't been regenerated yet
             .select()
             .single();
 
