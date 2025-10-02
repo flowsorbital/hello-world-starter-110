@@ -15,7 +15,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { useNavigate, useBeforeUnload, useBlocker } from "react-router-dom";
+import { useNavigate, useBeforeUnload } from "react-router-dom";
 
 const steps = [
   "Select Agent",
@@ -82,24 +82,6 @@ export default function RunCampaign() {
     },
     { capture: true }
   );
-
-  // Block navigation attempts using React Router
-  const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) => {
-      // Only block if we're on step 3, have a saved campaign, and it hasn't been launched
-      return currentStep === 3 && 
-             savedCampaignId !== null && 
-             !isLaunched &&
-             currentLocation.pathname !== nextLocation.pathname;
-    }
-  );
-
-  // Show dialog when navigation is blocked
-  useEffect(() => {
-    if (blocker.state === "blocked") {
-      setShowExitDialog(true);
-    }
-  }, [blocker.state]);
 
   useEffect(() => {
     if (user) {
@@ -186,9 +168,6 @@ export default function RunCampaign() {
         .eq('id', savedCampaignId);
 
       setShowExitDialog(false);
-      if (blocker.state === "blocked") {
-        blocker.proceed();
-      }
 
       toast({
         title: "Campaign Discarded",
@@ -208,9 +187,6 @@ export default function RunCampaign() {
 
   const handleSaveForLater = () => {
     setShowExitDialog(false);
-    if (blocker.state === "blocked") {
-      blocker.proceed();
-    }
     toast({
       title: "Campaign Saved",
       description: "Your draft campaign has been saved",
