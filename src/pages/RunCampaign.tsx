@@ -15,7 +15,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useBeforeUnload } from "react-router-dom";
 
 const steps = [
   "Select Agent",
@@ -71,6 +71,30 @@ export default function RunCampaign() {
   const { profile } = useProfile();
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Prevent navigation away from Review & Launch page
+  useBeforeUnload(
+    (e) => {
+      if (currentStep === 3 && savedCampaignId && !isLaunched) {
+        e.preventDefault();
+        return (e.returnValue = "You have unsaved changes. Are you sure you want to leave?");
+      }
+    },
+    { capture: true }
+  );
+
+  // Handle route navigation attempts
+  useEffect(() => {
+    const handleBeforeNavigate = (e: PopStateEvent) => {
+      if (currentStep === 3 && savedCampaignId && !isLaunched) {
+        e.preventDefault();
+        setShowExitDialog(true);
+      }
+    };
+
+    window.addEventListener('popstate', handleBeforeNavigate);
+    return () => window.removeEventListener('popstate', handleBeforeNavigate);
+  }, [currentStep, savedCampaignId, isLaunched]);
 
   useEffect(() => {
     if (user) {
@@ -214,9 +238,10 @@ export default function RunCampaign() {
         .insert(
           parsedContacts.map(contact => ({
             user_id: user.id,
+            name: contact.name || '',
             phone: contact.phone,
             additional_fields: Object.fromEntries(
-              Object.entries(contact).filter(([key]) => !['id', 'phone'].includes(key))
+              Object.entries(contact).filter(([key]) => !['id', 'phone', 'name'].includes(key))
             ),
           }))
         );
