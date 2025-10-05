@@ -99,7 +99,8 @@ export function useDashboardData() {
             total_cost,
             created_at
           )
-        `);
+        `)
+        .neq('status', 'Draft'); //exclude draft campaigns from dashboard
 
       // Apply campaign filter to campaigns query
       if (selectedCampaigns && selectedCampaigns.length > 0 && !selectedCampaigns.includes('all')) {
