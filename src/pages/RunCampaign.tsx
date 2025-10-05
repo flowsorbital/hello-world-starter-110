@@ -71,7 +71,7 @@ export default function RunCampaign() {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Prevent navigation away from Review & Launch page
+  // Prevent navigation away from Review & Launch page using browser back/forward
   useBeforeUnload(
     (e) => {
       if (currentStep === 3 && savedCampaignId && !isLaunched) {
@@ -81,19 +81,6 @@ export default function RunCampaign() {
     },
     { capture: true }
   );
-
-  // Handle route navigation attempts
-  useEffect(() => {
-    const handleBeforeNavigate = (e: PopStateEvent) => {
-      if (currentStep === 3 && savedCampaignId && !isLaunched) {
-        e.preventDefault();
-        setShowExitDialog(true);
-      }
-    };
-
-    window.addEventListener('popstate', handleBeforeNavigate);
-    return () => window.removeEventListener('popstate', handleBeforeNavigate);
-  }, [currentStep, savedCampaignId, isLaunched]);
 
   useEffect(() => {
     if (user) {
@@ -179,6 +166,8 @@ export default function RunCampaign() {
         .delete()
         .eq('id', savedCampaignId);
 
+      setShowExitDialog(false);
+
       toast({
         title: "Campaign Discarded",
         description: "The draft campaign has been deleted",
@@ -196,6 +185,7 @@ export default function RunCampaign() {
   };
 
   const handleSaveForLater = () => {
+    setShowExitDialog(false);
     toast({
       title: "Campaign Saved",
       description: "Your draft campaign has been saved",
@@ -240,7 +230,7 @@ export default function RunCampaign() {
             additional_fields: Object.fromEntries(
               Object.entries(contact).filter(([key]) => !['id', 'phone'].includes(key))
             ),
-          }))
+          })) as any // Type assertion needed as types file hasn't been regenerated yet
         );
 
       if (error) throw error;
