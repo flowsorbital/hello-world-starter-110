@@ -23,7 +23,7 @@ async function updateCampaignStatus(supabase: any, batchId: string, batchStatus:
     }
 
     let campaignStatus = null;
-    
+
     // Map batch status to campaign status
     switch (batchStatus?.toLowerCase()) {
       case 'completed':
@@ -41,7 +41,7 @@ async function updateCampaignStatus(supabase: any, batchId: string, batchStatus:
 
     if (campaignStatus) {
       console.log(`Updating campaign ${batchCallData.campaign_id} status to: ${campaignStatus}`);
-      
+
       const { error: campaignError } = await supabase
         .from('campaigns')
         .update({
@@ -82,10 +82,10 @@ serve(async (req) => {
 
     const signature = req.headers.get('elevenlabs-signature') || req.headers.get('x-elevenlabs-signature');
     console.log('Found signature header:', signature);
-    
+
     const body = await req.text();
     console.log('Request body length:', body.length);
-    
+
     const webhookData = JSON.parse(body);
     console.log('Received webhook payload:', JSON.stringify(webhookData, null, 2));
 
@@ -93,7 +93,7 @@ serve(async (req) => {
     const webhookSecret = Deno.env.get('ELEVENLABS_WEBHOOK_SECRET');
     console.log('Webhook secret configured:', !!webhookSecret);
     console.log('Webhook secret (first 10 chars):', webhookSecret?.substring(0, 10));
-    
+
     if (!webhookSecret) {
       console.error('Webhook secret not configured');
       return new Response(JSON.stringify({ error: 'Webhook secret not configured' }), {
@@ -110,7 +110,7 @@ serve(async (req) => {
         // Remove any quotes from the webhook secret if present
         const cleanSecret = webhookSecret.replace(/^["']|["']$/g, '');
         console.log('Using clean secret (first 10 chars):', cleanSecret.substring(0, 10));
-        
+
         const key = await crypto.subtle.importKey(
           'raw',
           new TextEncoder().encode(cleanSecret),
@@ -161,26 +161,70 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     if (webhookData.type === 'post_call_transcription') {
-      const conversationData = webhookData.data; //conv_6501k4yxfg2ce8rawe5dew8dzy0h
-      console.log('Processing conversation:', conversationData.conversation_id);
-      console.log('batch_call_recipient_id:', conversationData.metadata.batch_call?.batch_call_recipient_id);
-      // Try to find user_id from recipient record, but don't fail if not found
-      let userId = null;
-      let campaignId = null;
+       const conversationData = webhookData.data; //conv_6501k4yxfg2ce8rawe5dew8dzy0h
+       console.log('Processing conversation:', conversationData.conversation_id);
+       console.log('batch_call_recipient_id:', conversationData.metadata.batch_call?.batch_call_recipient_id);
+       // Try to find user_id from recipient record, but don't fail if not found
+       let userId = null;
+       let campaignId = null;
 
-      // If no user_id found from recipient, try to find from batch_calls table
-      if (conversationData.metadata.batch_call?.batch_call_id) {
-        const { data: batchRecord } = await supabase
-          .from('batch_calls')
-          .select('user_id,campaign_id')
-          .eq('batch_id', conversationData.metadata.batch_call.batch_call_id)
-          .maybeSingle();
-        
-        userId = batchRecord?.user_id;
-        campaignId = batchRecord?.campaign_id
-        console.log('Found user_id from batch_calls:', userId);
-        console.log('Found campaignId from batch_calls:', campaignId);
-      }
+       // If no user_id found from recipient, try to find from batch_calls table
+       if (conversationData.metadata.batch_call?.batch_call_id) {
+         console.log('Looking up batch_call_id:', conversationData.metadata.batch_call.batch_call_id);
+
+         const { data: batchRecord, error: batchError } = await supabase
+           .from('batch_calls')
+           .select('user_id,campaign_id')
+           .eq('batch_id', conversationData.metadata.batch_call.batch_call_id)
+           .maybeSingle();
+
+         if (batchError) {
+           console.error('Error looking up batch_calls:', batchError);
+         }
+
+         userId = batchRecord?.user_id;
+         campaignId = batchRecord?.campaign_id;
+         console.log('Found user_id from batch_calls:', userId);
+         console.log('Found campaignId from batch_calls:', campaignId);
+         console.log('Batch record found:', !!batchRecord);
+       } else {
+         console.log('No batch_call_id found in metadata');
+       }
+
+       // Fallback: try to find campaign by phone number and recent timestamp if no batch found
+       if (!userId || !campaignId) {
+         console.log('Attempting fallback lookup by phone number and timestamp');
+         const phoneNumber = conversationData.metadata.phone_call?.external_number;
+
+         if (phoneNumber) {
+           // Look for recent campaigns with this phone number
+           const { data: recentCampaigns } = await supabase
+             .from('campaigns')
+             .select(`
+               id,
+               user_id,
+               phone_number,
+               created_at,
+               campaign_contact!inner(
+                 contact_id,
+                 contacts!inner(
+                   phone
+                 )
+               )
+             `)
+             .eq('campaign_contact.contacts.phone', phoneNumber)
+             .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()) // Last 24 hours
+             .order('created_at', { ascending: false })
+             .limit(1);
+
+           if (recentCampaigns && recentCampaigns.length > 0) {
+             const campaign = recentCampaigns[0];
+             userId = campaign.user_id;
+             campaignId = campaign.id;
+             console.log('Found campaign via fallback:', JSON.stringify({ userId: userId, campaignId: campaignId, phone: phoneNumber }));
+           }
+         }
+       }
 
       if (!userId) {
         console.error('Unable to determine user_id for conversation');
@@ -193,7 +237,7 @@ serve(async (req) => {
       // Extract dynamic variables from conversation initiation client data for contact name
       const dynamicVariables = conversationData.conversation_initiation_client_data?.dynamic_variables || {};
       const contactName = dynamicVariables.name || conversationData.contact_name || null;
-      
+
       console.log('Dynamic variables:', JSON.stringify(dynamicVariables, null, 2));
       console.log('Resolved contact name:', contactName);
 
@@ -283,7 +327,7 @@ serve(async (req) => {
         console.error('Error updating batch status:', batchError);
       } else {
         console.log('Batch status updated successfully');
-        
+
         // Update corresponding campaign status
         await updateCampaignStatus(supabase, batchData.batch_id, batchData.status);
       }

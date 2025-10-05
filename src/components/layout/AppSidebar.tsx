@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { Home, Mic, Phone, Settings, HelpCircle } from "lucide-react";
+import { Home, Mic, Phone, Users, Settings, HelpCircle } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -17,6 +17,7 @@ const navigationItems = [
   { title: "Dashboard", url: "/dashboard", icon: Home },
   { title: "Create Agent", url: "/create-agent", icon: Mic },
   { title: "Run Campaign", url: "/run-campaign", icon: Phone },
+  { title: "Contacts", url: "/contacts", icon: Users },
   { title: "Settings", url: "/settings", icon: Settings },
   { title: "Support", url: "/support", icon: HelpCircle },
 ];

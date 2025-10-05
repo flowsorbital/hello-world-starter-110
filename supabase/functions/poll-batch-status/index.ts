@@ -24,7 +24,7 @@ async function updateCampaignStatus(supabase: any, batchId: string, batchStatus:
     }
 
     let campaignStatus = null;
-    
+
     // Map batch status to campaign status
     switch (batchStatus?.toLowerCase()) {
       case 'completed':
@@ -41,8 +41,8 @@ async function updateCampaignStatus(supabase: any, batchId: string, batchStatus:
     }
 
     if (campaignStatus) {
-      console.log(`Updating campaign ${batchCallData.campaign_id} status to: ${campaignStatus}`);
-      
+      console.log('Updating campaign ' + batchCallData.campaign_id + ' status to: ' + campaignStatus);
+
       const { error: campaignError } = await supabase
         .from('campaigns')
         .update({
@@ -54,7 +54,7 @@ async function updateCampaignStatus(supabase: any, batchId: string, batchStatus:
       if (campaignError) {
         console.error('Error updating campaign status:', campaignError);
       } else {
-        console.log(`Successfully updated campaign status to: ${campaignStatus}`);
+        console.log('Successfully updated campaign status to: ' + campaignStatus);
       }
     }
   } catch (error) {
@@ -74,13 +74,13 @@ serve(async (req) => {
 
   try {
     const { batchId, userId } = await req.json();
-    
+
     if (!batchId || !userId) {
       throw new Error('Batch ID and User ID are required');
     }
 
     const elevenlabsApiKey = Deno.env.get('ELEVENLABS_API_KEY');
-    
+
     if (!elevenlabsApiKey) {
       throw new Error('ElevenLabs API key not configured');
     }
@@ -100,9 +100,9 @@ serve(async (req) => {
 
     while (!isCompleted && pollCount < maxPolls) {
       try {
-        console.log(`Polling attempt ${pollCount + 1} for batch ${batchId}`);
-        
-        const response = await fetch(`https://api.elevenlabs.io/v1/convai/batch-calling/${batchId}`, {
+        console.log('Polling attempt ' + (pollCount + 1) + ' for batch ' + batchId);
+
+        const response = await fetch('https://api.elevenlabs.io/v1/convai/batch-calling/' + batchId, {
           method: 'GET',
           headers: {
             'xi-api-key': elevenlabsApiKey,
@@ -113,7 +113,7 @@ serve(async (req) => {
         if (!response.ok) {
           const errorText = await response.text();
           console.error('ElevenLabs API error:', response.status, errorText);
-          throw new Error(`ElevenLabs API error: ${response.status} - ${errorText}`);
+          throw new Error('ElevenLabs API error: ' + response.status + ' - ' + errorText);
         }
 
         const batchData = await response.json();
@@ -139,7 +139,7 @@ serve(async (req) => {
 
         // Save recipients data if available
         if (batchData.recipients && Array.isArray(batchData.recipients)) {
-          console.log(`Processing ${batchData.recipients.length} recipients`);
+          console.log('Processing ' + batchData.recipients.length + ' recipients');
 
           for (const recipient of batchData.recipients) {
             // Check if recipient already exists
@@ -153,17 +153,23 @@ serve(async (req) => {
             if (!existingRecipient) {
               // Check if conversation ID is available
               if (recipient.conversation_id) {
-                // FIX: Replaced insert().onConflict().ignore() with upsert()
-                // The upsert method correctly handles the logic of inserting if the record doesn't exist
-                // or doing nothing if it does, preventing the foreign key violation.
-                console.log(`Creating placeholder conversation record for ID: ${recipient.conversation_id}`);
+                // Get campaign_id from batch_calls table
+                const { data: batchCallData } = await supabase
+                  .from('batch_calls')
+                  .select('campaign_id')
+                  .eq('batch_id', batchId)
+                  .eq('user_id', userId)
+                  .single();
+
+                console.log('Creating placeholder conversation record for ID: ' + recipient.conversation_id);
                 const { error: conversationUpsertError } = await supabase
                   .from('conversations')
                   .upsert({
                     conversation_id: recipient.conversation_id,
                     status: recipient.status,
                     user_id: userId,
-                  }, { onConflict: 'conversation_id' }); // Use the `onConflict` option for upsert
+                    campaign_id: batchCallData?.campaign_id || null,
+                  }, { onConflict: 'conversation_id' });
 
                 if (conversationUpsertError) {
                   console.error('Error creating conversation placeholder:', conversationUpsertError);
@@ -193,6 +199,30 @@ serve(async (req) => {
               }
             } else {
               // Update existing recipient
+              // First ensure conversation exists if conversation_id is provided
+              if (recipient.conversation_id) {
+                const { data: batchCallData } = await supabase
+                  .from('batch_calls')
+                  .select('campaign_id')
+                  .eq('batch_id', batchId)
+                  .eq('user_id', userId)
+                  .single();
+
+                const { error: conversationUpsertError } = await supabase
+                  .from('conversations')
+                  .upsert({
+                    conversation_id: recipient.conversation_id,
+                    status: recipient.status,
+                    user_id: userId,
+                    campaign_id: batchCallData?.campaign_id || null,
+                  }, { onConflict: 'conversation_id' });
+
+                if (conversationUpsertError) {
+                  console.error('Error creating conversation placeholder:', conversationUpsertError);
+                  continue;
+                }
+              }
+
               const { error: recipientUpdateError } = await supabase
                 .from('recipients')
                 .update({
