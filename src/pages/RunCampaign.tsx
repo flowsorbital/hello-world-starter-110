@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ContactsModal } from "@/components/contacts/ContactsModal";
-
+import { CsvUploader } from "@/components/contacts/CsvUploader";
 import { ChevronLeft, ChevronRight, Upload, Play, CalendarIcon, Clock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -437,6 +437,15 @@ export default function RunCampaign() {
             <div className="space-y-6">
               <h3 className="text-xl font-semibold mb-6">Upload Contact List</h3>
               <div className="space-y-6">
+                <CsvUploader 
+                  onContactsUploaded={handleCsvUpload}
+                  campaignId={savedCampaignId || undefined}
+                />
+                
+                <div className="text-center">
+                  <span className="text-muted-foreground">OR</span>
+                </div>
+                
                 <Button 
                   variant="outline" 
                   className="w-full"
