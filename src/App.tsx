@@ -15,7 +15,7 @@ import RunCampaign from "./pages/RunCampaign";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
 import Support from "./pages/Support";
-import Contacts from "./pages/Contacts";
+
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -52,11 +52,6 @@ const App = () => (
             <Route path="/analytics" element={
               <ProtectedRoute>
                 <AppLayout><Analytics /></AppLayout>
-              </ProtectedRoute>
-            } />
-            <Route path="/contacts" element={
-              <ProtectedRoute>
-                <AppLayout><Contacts /></AppLayout>
               </ProtectedRoute>
             } />
             <Route path="/settings" element={
