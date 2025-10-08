@@ -538,7 +538,7 @@ const Homepage = () => {
                 <div className="space-y-4">
                   <div className="flex items-center">
                     <Mail className="h-5 w-5 text-primary mr-3" />
-                    <span>support@orbitalflows.com</span>
+                    <span>flowsorbital@gmail.com</span>
                   </div>
                 </div>
               </div>
