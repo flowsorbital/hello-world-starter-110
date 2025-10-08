@@ -373,23 +373,12 @@ const Homepage = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             <PricingCard
-              name="Starter"
-              price="₹4,000"
-              period="/mo"
-              features={[
-                "250 minutes",
-                "2 integrations",
-                "Email support",
-                "Basic analytics"
-              ]}
-            />
-            <PricingCard
               name="Growth"
-              price="₹12,000"
+              price="₹15,000"
               period="/mo"
               features={[
                 "800 minutes",
-                "5 integrations", 
+                "1 integration", 
                 "Priority support",
                 "Advanced analytics"
               ]}
@@ -401,7 +390,7 @@ const Homepage = () => {
               period="/mo"
               features={[
                 "2200 minutes",
-                "10 integrations",
+                "3 integrations",
                 "Advanced analytics",
                 "Custom workflows"
               ]}
