@@ -545,32 +545,14 @@ const Homepage = () => {
 
               {/* Global Locations */}
               <div>
-                <h3 className="text-2xl font-bold mb-4">Our Global Presence</h3>
+                <h3 className="text-2xl font-bold mb-4">Our Presence</h3>
                 <div className="grid grid-cols-1 gap-4">
                   <Card className="p-4 hover:shadow-md transition-shadow">
                     <div className="flex items-center">
                       <MapPin className="h-5 w-5 text-primary mr-3" />
                       <div>
                         <div className="font-semibold">Delhi</div>
-                        <div className="text-sm text-muted-foreground">India Headquarters</div>
-                      </div>
-                    </div>
-                  </Card>
-                  <Card className="p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-center">
-                      <MapPin className="h-5 w-5 text-primary mr-3" />
-                      <div>
-                        <div className="font-semibold">San Francisco</div>
-                        <div className="text-sm text-muted-foreground">US Operations</div>
-                      </div>
-                    </div>
-                  </Card>
-                  <Card className="p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-center">
-                      <MapPin className="h-5 w-5 text-primary mr-3" />
-                      <div>
-                        <div className="font-semibold">Dubai</div>
-                        <div className="text-sm text-muted-foreground">Middle East Hub</div>
+                        <div className="text-sm text-muted-foreground">Headquarter</div>
                       </div>
                     </div>
                   </Card>
