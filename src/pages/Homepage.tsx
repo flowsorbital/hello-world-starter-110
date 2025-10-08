@@ -371,25 +371,14 @@ const Homepage = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            <PricingCard
-              name="Starter"
-              price="₹4,000"
-              period="/mo"
-              features={[
-                "250 minutes",
-                "2 integrations",
-                "Email support",
-                "Basic analytics"
-              ]}
-            />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
             <PricingCard
               name="Growth"
-              price="₹12,000"
+              price="₹15,000"
               period="/mo"
               features={[
                 "800 minutes",
-                "5 integrations", 
+                "1 integration", 
                 "Priority support",
                 "Advanced analytics"
               ]}
@@ -401,7 +390,7 @@ const Homepage = () => {
               period="/mo"
               features={[
                 "2200 minutes",
-                "10 integrations",
+                "3 integrations",
                 "Advanced analytics",
                 "Custom workflows"
               ]}
@@ -538,39 +527,21 @@ const Homepage = () => {
                 <div className="space-y-4">
                   <div className="flex items-center">
                     <Mail className="h-5 w-5 text-primary mr-3" />
-                    <span>support@orbitalflows.com</span>
+                    <span>flowsorbital@gmail.com</span>
                   </div>
                 </div>
               </div>
 
               {/* Global Locations */}
               <div>
-                <h3 className="text-2xl font-bold mb-4">Our Global Presence</h3>
+                <h3 className="text-2xl font-bold mb-4">Our Presence</h3>
                 <div className="grid grid-cols-1 gap-4">
                   <Card className="p-4 hover:shadow-md transition-shadow">
                     <div className="flex items-center">
                       <MapPin className="h-5 w-5 text-primary mr-3" />
                       <div>
                         <div className="font-semibold">Delhi</div>
-                        <div className="text-sm text-muted-foreground">India Headquarters</div>
-                      </div>
-                    </div>
-                  </Card>
-                  <Card className="p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-center">
-                      <MapPin className="h-5 w-5 text-primary mr-3" />
-                      <div>
-                        <div className="font-semibold">San Francisco</div>
-                        <div className="text-sm text-muted-foreground">US Operations</div>
-                      </div>
-                    </div>
-                  </Card>
-                  <Card className="p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-center">
-                      <MapPin className="h-5 w-5 text-primary mr-3" />
-                      <div>
-                        <div className="font-semibold">Dubai</div>
-                        <div className="text-sm text-muted-foreground">Middle East Hub</div>
+                        <div className="text-sm text-muted-foreground">Headquarter</div>
                       </div>
                     </div>
                   </Card>
@@ -825,10 +796,6 @@ const faqs = [
   {
     question: "Can I scale minutes as I grow?",
     answer: "Absolutely! You can upgrade your plan at any time to get more minutes and additional features. We also offer custom enterprise solutions for high-volume needs."
-  },
-  {
-    question: "Is there a free trial available?",
-    answer: "Yes! We offer a 7-day free trial with 50 minutes included so you can test our platform risk-free. No credit card required to start."
   }
 ];
 
