@@ -169,6 +169,9 @@ serve(async (req) => {
                     status: recipient.status,
                     user_id: userId,
                     campaign_id: batchCallData?.campaign_id || null,
+                    phone_number: recipient.phone_number,
+                    contact_name: recipient.contact_name || null,
+                    dynamic_variables: recipient.conversation_initiation_client_data?.dynamic_variables || null,
                   }, { onConflict: 'conversation_id' });
 
                 if (conversationUpsertError) {
@@ -215,6 +218,9 @@ serve(async (req) => {
                     status: recipient.status,
                     user_id: userId,
                     campaign_id: batchCallData?.campaign_id || null,
+                    phone_number: recipient.phone_number,
+                    contact_name: recipient.contact_name || null,
+                    dynamic_variables: recipient.conversation_initiation_client_data?.dynamic_variables || null,
                   }, { onConflict: 'conversation_id' });
 
                 if (conversationUpsertError) {

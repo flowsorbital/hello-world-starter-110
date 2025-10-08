@@ -125,7 +125,14 @@ export function useDashboardData() {
       const connectedCalls = conversationsData?.filter(c => 
         c.status?.toLowerCase() === 'done' || c.status?.toLowerCase() === 'completed'
       ).length || 0;
-      const successRate = totalCalls > 0 ? (connectedCalls / totalCalls) * 100 : 0;
+      
+      // Calculate success rate based on evaluation results, not connected calls
+      const successfulEvaluations = conversationsData?.filter(c => {
+        if (!c.analysis?.evaluation_criteria_results) return false;
+        const results = Object.values(c.analysis.evaluation_criteria_results);
+        return results.length > 0 && results.every((result: any) => result.result === 'success');
+      }).length || 0;
+      const successRate = totalCalls > 0 ? (successfulEvaluations / totalCalls) * 100 : 0;
       
       // Calculate total minutes using new billing logic
       const totalMinutes = conversationsData?.reduce((sum, c) => {
@@ -153,7 +160,14 @@ export function useDashboardData() {
         const campaignConnected = campaignCalls.filter((c: any) => 
           c.status?.toLowerCase() === 'done' || c.status?.toLowerCase() === 'completed'
         ).length;
-        const campaignSuccessRate = campaignCalls.length > 0 ? (campaignConnected / campaignCalls.length) * 100 : 0;
+        
+        // Calculate success rate based on evaluation results, not connected calls
+        const campaignSuccessfulEvaluations = campaignCalls.filter((c: any) => {
+          if (!c.analysis?.evaluation_criteria_results) return false;
+          const results = Object.values(c.analysis.evaluation_criteria_results);
+          return results.length > 0 && results.every((result: any) => result.result === 'success');
+        }).length;
+        const campaignSuccessRate = campaignCalls.length > 0 ? (campaignSuccessfulEvaluations / campaignCalls.length) * 100 : 0;
         
         // Calculate total minutes using new billing logic: <=60sec = 1min, >60&<=120 = 2min, etc.
         const campaignMinutes = campaignCalls.reduce((sum: number, c: any) => {

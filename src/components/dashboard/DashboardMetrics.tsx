@@ -42,7 +42,7 @@ export function DashboardMetrics({ metrics, isLoading, userCurrency = 'INR' }: D
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
       <KPICard
         title="Total Calls Made"
         value={metrics.totalCalls.toLocaleString()}
@@ -52,6 +52,11 @@ export function DashboardMetrics({ metrics, isLoading, userCurrency = 'INR' }: D
         title="Total Connected"
         value={metrics.totalConnected.toLocaleString()}
         icon={Users}
+      />
+      <KPICard
+        title="Call Connectivity Rate"
+        value={`${((metrics.totalConnected / metrics.totalCalls) * 100 || 0).toFixed(1)}%`}
+        icon={Target}
       />
       <KPICard
         title="Overall Success Rate"

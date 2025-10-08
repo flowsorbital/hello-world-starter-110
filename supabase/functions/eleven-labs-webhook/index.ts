@@ -23,7 +23,7 @@ async function updateCampaignStatus(supabase: any, batchId: string, batchStatus:
     }
 
     let campaignStatus = null;
-
+    
     // Map batch status to campaign status
     switch (batchStatus?.toLowerCase()) {
       case 'completed':
@@ -41,7 +41,7 @@ async function updateCampaignStatus(supabase: any, batchId: string, batchStatus:
 
     if (campaignStatus) {
       console.log(`Updating campaign ${batchCallData.campaign_id} status to: ${campaignStatus}`);
-
+      
       const { error: campaignError } = await supabase
         .from('campaigns')
         .update({
@@ -82,10 +82,10 @@ serve(async (req) => {
 
     const signature = req.headers.get('elevenlabs-signature') || req.headers.get('x-elevenlabs-signature');
     console.log('Found signature header:', signature);
-
+    
     const body = await req.text();
     console.log('Request body length:', body.length);
-
+    
     const webhookData = JSON.parse(body);
     console.log('Received webhook payload:', JSON.stringify(webhookData, null, 2));
 
@@ -93,7 +93,7 @@ serve(async (req) => {
     const webhookSecret = Deno.env.get('ELEVENLABS_WEBHOOK_SECRET');
     console.log('Webhook secret configured:', !!webhookSecret);
     console.log('Webhook secret (first 10 chars):', webhookSecret?.substring(0, 10));
-
+    
     if (!webhookSecret) {
       console.error('Webhook secret not configured');
       return new Response(JSON.stringify({ error: 'Webhook secret not configured' }), {
@@ -110,7 +110,7 @@ serve(async (req) => {
         // Remove any quotes from the webhook secret if present
         const cleanSecret = webhookSecret.replace(/^["']|["']$/g, '');
         console.log('Using clean secret (first 10 chars):', cleanSecret.substring(0, 10));
-
+        
         const key = await crypto.subtle.importKey(
           'raw',
           new TextEncoder().encode(cleanSecret),
@@ -237,7 +237,7 @@ serve(async (req) => {
       // Extract dynamic variables from conversation initiation client data for contact name
       const dynamicVariables = conversationData.conversation_initiation_client_data?.dynamic_variables || {};
       const contactName = dynamicVariables.name || conversationData.contact_name || null;
-
+      
       console.log('Dynamic variables:', JSON.stringify(dynamicVariables, null, 2));
       console.log('Resolved contact name:', contactName);
 
@@ -327,7 +327,7 @@ serve(async (req) => {
         console.error('Error updating batch status:', batchError);
       } else {
         console.log('Batch status updated successfully');
-
+        
         // Update corresponding campaign status
         await updateCampaignStatus(supabase, batchData.batch_id, batchData.status);
       }

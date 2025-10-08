@@ -30,7 +30,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar 
-      className={`${isCollapsed ? "w-14" : "w-64"} transition-all duration-300`}
+      className={`${isCollapsed ? "w-14" : "w-48"} transition-all duration-300`}
       collapsible="icon"
     >
       <SidebarContent className="bg-sidebar border-sidebar-border">

@@ -164,12 +164,11 @@ export function CampaignDetails({
       return {
         'Phone Number': conversation.phone_number || 'N/A',
         'Name': conversation.dynamic_variables?.name || conversation.dynamic_variables?.user_name || conversation.additional_fields?.name || 'N/A',
-        'Call Status': conversation.call_successful || 'Unknown',
+        'Call Status': conversation.status || 'Unknown',
         'Date': formatDateOnly(conversation.start_time_unix),
         'Start Time': formatTimeOnly(conversation.start_time_unix),
         'Duration': formatDuration(conversation.call_duration_secs),
         'Summary': conversation.conversation_summary || 'No summary available',
-        'Has Audio': conversation.has_audio ? 'Yes' : 'No',
         'Evaluation Results': evaluationResults,
         'Data Collection Results': dataCollectionResults
       };
