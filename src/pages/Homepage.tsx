@@ -796,10 +796,6 @@ const faqs = [
   {
     question: "Can I scale minutes as I grow?",
     answer: "Absolutely! You can upgrade your plan at any time to get more minutes and additional features. We also offer custom enterprise solutions for high-volume needs."
-  },
-  {
-    question: "Is there a free trial available?",
-    answer: "Yes! We offer a 7-day free trial with 50 minutes included so you can test our platform risk-free. No credit card required to start."
   }
 ];
 
