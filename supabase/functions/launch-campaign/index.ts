@@ -38,6 +38,49 @@ serve(async (req) => {
       }
     );
 
+    // Get campaign and user data for minutes validation
+    const { data: campaignData, error: campaignError } = await serviceRoleSupabase
+      .from('campaigns')
+      .select('user_id')
+      .eq('id', campaignId)
+      .single();
+
+    if (campaignError) {
+      throw new Error(`Failed to fetch campaign: ${campaignError.message}`);
+    }
+
+    // Get user profile for minutes validation
+    const { data: profileData, error: profileError } = await serviceRoleSupabase
+      .from('profiles')
+      .select('available_minutes')
+      .eq('id', campaignData.user_id)
+      .single();
+
+    if (profileError) {
+      throw new Error(`Failed to fetch user profile: ${profileError.message}`);
+    }
+
+    // Calculate estimated minutes (2 minutes per contact)
+    const estimatedMinutes = recipients.length * 2;
+    const availableMinutes = profileData.available_minutes || 0;
+
+    // Validate sufficient minutes
+    if (estimatedMinutes > availableMinutes) {
+      throw new Error(`Insufficient minutes. Need ${estimatedMinutes} minutes but only ${availableMinutes} available.`);
+    }
+
+    // Deduct estimated minutes immediately to prevent double-spending
+    const { error: deductError } = await serviceRoleSupabase
+      .from('profiles')
+      .update({ available_minutes: availableMinutes - estimatedMinutes })
+      .eq('id', campaignData.user_id);
+
+    if (deductError) {
+      throw new Error(`Failed to deduct minutes: ${deductError.message}`);
+    }
+
+    console.log(`Deducted ${estimatedMinutes} minutes from user ${campaignData.user_id}. Remaining: ${availableMinutes - estimatedMinutes}`);
+
     console.log('Launching campaign with data:', {
       call_name: callName,
       agent_id: agentId,
@@ -158,16 +201,6 @@ serve(async (req) => {
 
     // Save batch call data if available
     if (result.id) {
-      // Get user_id first using the ANONYMOUS key client
-      const { data: campaignData, error: campaignError } = await serviceRoleSupabase
-        .from('campaigns')
-        .select('user_id')
-        .eq('id', campaignId)
-        .single();
-
-      if (campaignError) {
-        console.error('Error fetching campaign data:', campaignError);
-      } else {
         const batchIdToUse = result.id; // API returns 'id' field as batch_id
         console.log('Saving batch call data with batch_id:', batchIdToUse);
         console.log('Full API response:', JSON.stringify(result));
@@ -208,6 +241,21 @@ serve(async (req) => {
               userId: campaignData.user_id
             })
           }).catch(err => console.error('Error starting polling:', err));
+        // Record minutes transaction for audit trail
+        const { error: transactionError } = await serviceRoleSupabase
+          .from('minutes_transactions')
+          .insert({
+            user_id: campaignData.user_id,
+            campaign_id: campaignId,
+            batch_id: batchIdToUse,
+            transaction_type: 'deduction',
+            minutes: estimatedMinutes,
+            description: `Campaign launch: ${callName}`,
+            created_at: new Date().toISOString()
+          });
+
+        if (transactionError) {
+          console.error('Error recording minutes transaction:', transactionError);
         }
       }
     }
