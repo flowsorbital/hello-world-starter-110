@@ -169,6 +169,24 @@ export default function Settings() {
                 className="w-full p-3 border border-input rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent"
               />
             </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Call Rate ({profile?.currency || 'INR'})</label>
+              <input 
+                type="text" 
+                value={profile?.call_rate || '0'}
+                disabled
+                className="w-full p-3 border border-input rounded-lg bg-muted text-muted-foreground"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Available Minutes</label>
+              <input 
+                type="text" 
+                value={profile?.available_minutes || '0'}
+                disabled
+                className="w-full p-3 border border-input rounded-lg bg-muted text-muted-foreground"
+              />
+            </div>
           </div>
           <Separator />
           <div className="flex justify-end">
