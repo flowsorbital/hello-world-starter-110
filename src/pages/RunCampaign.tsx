@@ -76,6 +76,11 @@ export default function RunCampaign() {
   const { toast } = useToast();
   const navigate = useNavigate();
 
+  // Calculate estimated minutes needed (2 minutes per contact)
+  const estimatedMinutes = contacts.length * 2;
+  const availableMinutes = profile?.available_minutes || 0;
+  const hasInsufficientMinutes = estimatedMinutes > availableMinutes;
+
   // Prevent navigation away from Review & Launch page
   useBeforeUnload(
     (e) => {
@@ -615,8 +620,33 @@ export default function RunCampaign() {
                         }
                       </p>
                     </div>
+                    <div>
+                      <span className="text-muted-foreground">Estimated Minutes:</span>
+                      <p className="font-medium">{estimatedMinutes} minutes</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Available Minutes:</span>
+                      <p className={`font-medium ${hasInsufficientMinutes ? 'text-red-600' : 'text-green-600'}`}>
+                        {availableMinutes} minutes
+                      </p>
+                    </div>
                   </div>
                 </div>
+                
+                {hasInsufficientMinutes && (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <div className="flex items-center gap-2 text-red-800">
+                      <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      <span className="font-medium">Insufficient Minutes</span>
+                    </div>
+                    <p className="text-red-700 text-sm mt-1">
+                      You need {estimatedMinutes} minutes but only have {availableMinutes} minutes available. 
+                      Please reduce contacts or purchase more minutes to launch this campaign.
+                    </p>
+                  </div>
+                )}
                 
                 {isLaunched ? (
                   <div className="text-center p-6 bg-success/10 rounded-lg border border-success/20">
@@ -629,7 +659,7 @@ export default function RunCampaign() {
                   <Button 
                     onClick={handleLaunchCampaign}
                     className="w-full h-12 text-lg flex items-center justify-center gap-3"
-                    disabled={!selectedAgent || contacts.length === 0 || !campaignName || !savedCampaignId || isLaunching}
+                    disabled={!selectedAgent || contacts.length === 0 || !campaignName || !savedCampaignId || isLaunching || hasInsufficientMinutes}
                   >
                     {isLaunching ? (
                       <>

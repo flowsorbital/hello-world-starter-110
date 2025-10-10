@@ -2,6 +2,73 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+// Helper function to calculate billing minutes with 1-minute pulse
+function calculateBillingMinutes(durationSeconds: number): number {
+  if (durationSeconds <= 0) return 0;
+  return Math.ceil(durationSeconds / 60); // Always round up to next minute
+}
+
+// Helper function to handle minutes refund for individual conversation
+async function handleConversationMinutesRefund(supabase: any, conversationData: any, userId: string, campaignId: string) {
+  try {
+    if (!campaignId) return;
+
+    const callDurationSecs = conversationData.metadata?.call_duration_secs || 0;
+    const actualMinutesUsed = calculateBillingMinutes(callDurationSecs);
+    const estimatedMinutesPerCall = 2; // Original estimation was 2 minutes per call
+    
+    // Only process refund if actual usage is less than estimated
+    if (actualMinutesUsed < estimatedMinutesPerCall) {
+      const refundMinutes = estimatedMinutesPerCall - actualMinutesUsed;
+      
+      // Update user's available minutes
+      const { data: currentProfile, error: profileError } = await supabase
+        .from('profiles')
+        .select('available_minutes')
+        .eq('id', userId)
+        .single();
+
+      if (profileError) {
+        console.error('Error fetching profile for refund:', profileError);
+        return;
+      }
+
+      const newAvailableMinutes = (currentProfile.available_minutes || 0) + refundMinutes;
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ available_minutes: newAvailableMinutes })
+        .eq('id', userId);
+
+      if (updateError) {
+        console.error('Error refunding minutes:', updateError);
+        return;
+      }
+
+      // Record refund transaction
+      const { error: refundTransactionError } = await supabase
+        .from('minutes_transactions')
+        .insert({
+          user_id: userId,
+          campaign_id: campaignId,
+          batch_id: conversationData.metadata.batch_call?.batch_call_id || null,
+          transaction_type: 'refund',
+          minutes: refundMinutes,
+          description: `Call completed - refund for conversation ${conversationData.conversation_id}`,
+          created_at: new Date().toISOString()
+        });
+
+      if (refundTransactionError) {
+        console.error('Error recording refund transaction:', refundTransactionError);
+      } else {
+        console.log(`Refunded ${refundMinutes} minutes for conversation ${conversationData.conversation_id}. Duration: ${callDurationSecs}s, Billed: ${actualMinutesUsed}min`);
+      }
+    }
+  } catch (error) {
+    console.error('Error in handleConversationMinutesRefund:', error);
+  }
+}
+
 // Helper function to update campaign status based on batch status
 async function updateCampaignStatus(supabase: any, batchId: string, batchStatus: string) {
   try {
@@ -292,7 +359,12 @@ serve(async (req) => {
           console.log('Transcript saved successfully');
         }
 
-        // Step 3: Update the recipient record to link it to the conversation (if recipient exists)
+        // Step 3: Handle minutes refund for completed conversation
+        if (conversationData.status?.toLowerCase() === 'done' || conversationData.status?.toLowerCase() === 'completed') {
+          await handleConversationMinutesRefund(supabase, conversationData, userId, campaignId);
+        }
+
+        // Step 4: Update the recipient record to link it to the conversation (if recipient exists)
         if (conversationData.metadata.batch_call?.batch_call_recipient_id) {
           const { error: recipientUpdateError } = await supabase
             .from('recipients')
