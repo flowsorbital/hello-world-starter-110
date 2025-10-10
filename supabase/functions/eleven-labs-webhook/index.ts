@@ -25,7 +25,7 @@ async function handleConversationMinutesRefund(supabase: any, conversationData: 
       const { data: currentProfile, error: profileError } = await supabase
         .from('profiles')
         .select('available_minutes')
-        .eq('id', userId)
+        .eq('user_id', userId)
         .single();
 
       if (profileError) {
@@ -38,7 +38,7 @@ async function handleConversationMinutesRefund(supabase: any, conversationData: 
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ available_minutes: newAvailableMinutes })
-        .eq('id', userId);
+        .eq('user_id', userId);
 
       if (updateError) {
         console.error('Error refunding minutes:', updateError);
