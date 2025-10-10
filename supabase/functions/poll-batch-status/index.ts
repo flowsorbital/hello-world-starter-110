@@ -2,6 +2,108 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+// Helper function to handle minutes refund after campaign completion
+async function handleMinutesRefund(supabase: any, batchId: string, userId: string, batchData: any, isFailedCampaign = false) {
+  try {
+    // Get the original deduction transaction
+    const { data: deductionTransaction, error: transactionError } = await supabase
+      .from('minutes_transactions')
+      .select('minutes, campaign_id')
+      .eq('batch_id', batchId)
+      .eq('user_id', userId)
+      .eq('transaction_type', 'deduction')
+      .single();
+
+    if (transactionError || !deductionTransaction) {
+      console.error('Error finding deduction transaction:', transactionError);
+      return;
+    }
+
+    const originalMinutes = deductionTransaction.minutes;
+    let refundMinutes = 0;
+
+    if (isFailedCampaign) {
+      // Refund all minutes for failed campaigns
+      refundMinutes = originalMinutes;
+    } else {
+      // Get actual minutes used from conversations table
+      const { data: conversationsData, error: conversationsError } = await supabase
+        .from('conversations')
+        .select('call_duration_secs, status')
+        .eq('campaign_id', deductionTransaction.campaign_id);
+
+      if (conversationsError) {
+        console.error('Error fetching conversations for refund:', conversationsError);
+        return;
+      }
+
+      // Calculate actual minutes using same billing logic as dashboard
+      const actualMinutesUsed = conversationsData?.reduce((sum, conv) => {
+        // Only count completed/successful calls
+        if (conv.status?.toLowerCase() === 'done' || conv.status?.toLowerCase() === 'completed') {
+          const durationSeconds = conv.call_duration_secs || 0;
+          if (durationSeconds <= 0) return sum;
+          if (durationSeconds <= 60) return sum + 1;
+          return sum + Math.ceil(durationSeconds / 60);
+        }
+        return sum;
+      }, 0) || 0;
+      
+      refundMinutes = Math.max(0, originalMinutes - actualMinutesUsed);
+      
+      console.log(`Campaign completed: ${conversationsData?.length || 0} total calls, actual minutes used: ${actualMinutesUsed}`);
+      console.log(`Original minutes: ${originalMinutes}, Used minutes: ${actualMinutesUsed}, Refund: ${refundMinutes}`);
+    }
+
+    if (refundMinutes > 0) {
+      // Update user's available minutes
+      const { data: currentProfile, error: profileError } = await supabase
+        .from('profiles')
+        .select('available_minutes')
+        .eq('id', userId)
+        .single();
+
+      if (profileError) {
+        console.error('Error fetching current profile:', profileError);
+        return;
+      }
+
+      const newAvailableMinutes = (currentProfile.available_minutes || 0) + refundMinutes;
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ available_minutes: newAvailableMinutes })
+        .eq('id', userId);
+
+      if (updateError) {
+        console.error('Error refunding minutes:', updateError);
+        return;
+      }
+
+      // Record refund transaction
+      const { error: refundTransactionError } = await supabase
+        .from('minutes_transactions')
+        .insert({
+          user_id: userId,
+          campaign_id: deductionTransaction.campaign_id,
+          batch_id: batchId,
+          transaction_type: 'refund',
+          minutes: refundMinutes,
+          description: isFailedCampaign ? 'Campaign failed - full refund' : `Campaign completed - unused minutes refund`,
+          created_at: new Date().toISOString()
+        });
+
+      if (refundTransactionError) {
+        console.error('Error recording refund transaction:', refundTransactionError);
+      } else {
+        console.log(`Refunded ${refundMinutes} minutes to user ${userId}. New balance: ${newAvailableMinutes}`);
+      }
+    }
+  } catch (error) {
+    console.error('Error in handleMinutesRefund:', error);
+  }
+}
+
 // Helper function to update campaign status based on batch status
 async function updateCampaignStatus(supabase: any, batchId: string, batchStatus: string, userId: string) {
   try {
@@ -254,8 +356,14 @@ serve(async (req) => {
         if (batchData.status === 'completed') {
           isCompleted = true;
           console.log('Batch completed successfully');
+          
+          // Calculate minutes refund based on actual usage
+          await handleMinutesRefund(supabase, batchId, userId, batchData);
         } else if (batchData.status === 'failed' || batchData.status === 'cancelled') {
           console.log('Batch failed or cancelled, stopping polling');
+          
+          // Refund all minutes for failed campaigns
+          await handleMinutesRefund(supabase, batchId, userId, batchData, true);
           break;
         }
 
