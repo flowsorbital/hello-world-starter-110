@@ -53,7 +53,7 @@ serve(async (req) => {
     const { data: profileData, error: profileError } = await serviceRoleSupabase
       .from('profiles')
       .select('available_minutes')
-      .eq('id', campaignData.user_id)
+      .eq('user_id', campaignData.user_id)
       .single();
 
     if (profileError) {
@@ -73,7 +73,7 @@ serve(async (req) => {
     const { error: deductError } = await serviceRoleSupabase
       .from('profiles')
       .update({ available_minutes: availableMinutes - estimatedMinutes })
-      .eq('id', campaignData.user_id);
+      .eq('user_id', campaignData.user_id);
 
     if (deductError) {
       throw new Error(`Failed to deduct minutes: ${deductError.message}`);
