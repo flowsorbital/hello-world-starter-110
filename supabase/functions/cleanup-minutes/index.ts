@@ -49,6 +49,25 @@ serve(async (req) => {
     const processedCampaigns = [];
 
     for (const campaign of campaigns || []) {
+      // Check if this campaign has already been processed for batch cleanup
+      const { data: existingRefund, error: refundCheckError } = await supabase
+        .from('minutes_transactions')
+        .select('id')
+        .eq('campaign_id', campaign.id)
+        .eq('transaction_type', 'refund')
+        .ilike('description', 'Batch cleanup%')
+        .maybeSingle();
+
+      if (refundCheckError) {
+        console.error(`Error checking existing refunds for campaign ${campaign.id}:`, refundCheckError);
+        continue;
+      }
+
+      if (existingRefund) {
+        console.log(`Campaign ${campaign.id} already processed for batch cleanup, skipping`);
+        continue;
+      }
+
       // Get successful conversations for this campaign
       const { data: conversations, error: conversationsError } = await supabase
         .from('conversations')
