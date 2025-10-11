@@ -96,7 +96,7 @@ serve(async (req) => {
     let isCompleted = false;
     let pollCount = 0;
     const maxPolls = 100; // Prevent infinite loops
-    const pollInterval = 10000; // 10 seconds
+    const pollInterval = 5000; // 5 seconds
 
     while (!isCompleted && pollCount < maxPolls) {
       try {
@@ -250,13 +250,14 @@ serve(async (req) => {
           console.log('No recipients data available in batch response');
         }
 
-        // Check if completed
-        if (batchData.status === 'completed') {
+        // Check if completed (case-insensitive and multiple completion statuses)
+        const status = batchData.status?.toLowerCase();
+        if (status === 'completed') {
           isCompleted = true;
-          console.log('Batch completed successfully');
-        } else if (batchData.status === 'failed' || batchData.status === 'cancelled') {
-          console.log('Batch failed or cancelled, stopping polling');
-          break;
+          console.log('Batch completed successfully with status:', batchData.status);
+        } else if (status === 'failed' || status === 'cancelled' || status === 'error') {
+          isCompleted = true; // Set to true to exit the loop
+          console.log('Batch failed or cancelled, stopping polling with status:', batchData.status);
         }
 
         pollCount++;
@@ -267,10 +268,16 @@ serve(async (req) => {
         }
 
       } catch (pollError) {
-        console.error('Error during polling iteration:', pollError);
+        console.error('Error during polling iteration ' + (pollCount + 1) + ':', pollError);
         pollCount++;
 
-        // Continue polling on errors, but add delay
+        // Stop polling on critical errors (API key issues, network failures)
+        if (pollError.message?.includes('401') || pollError.message?.includes('403')) {
+          console.error('Authentication error, stopping polling');
+          break;
+        }
+
+        // Continue polling on other errors, but add delay
         if (pollCount < maxPolls) {
           await new Promise(resolve => setTimeout(resolve, pollInterval));
         }
