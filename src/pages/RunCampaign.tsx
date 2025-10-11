@@ -174,24 +174,56 @@ export default function RunCampaign() {
   };
 
   const handleDiscardCampaign = async () => {
-    if (!savedCampaignId) return;
+    if (!savedCampaignId) {
+      // If no saved campaign, just navigate away
+      navigate('/dashboard');
+      return;
+    }
 
     try {
-      // Delete campaign_contact links
-      await supabase
+      // Delete campaign_contact links first (foreign key constraint)
+      const { error: contactError } = await supabase
         .from('campaign_contact')
         .delete()
         .eq('campaign_id', savedCampaignId);
 
-      // Delete the campaign
-      await supabase
+      if (contactError) {
+        console.error('Error deleting campaign contacts:', contactError);
+      }
+
+      // Delete any batch_calls related to this campaign
+      const { error: batchError } = await supabase
+        .from('batch_calls')
+        .delete()
+        .eq('campaign_id', savedCampaignId);
+
+      if (batchError) {
+        console.error('Error deleting batch calls:', batchError);
+      }
+
+      // Delete any minutes transactions related to this campaign
+      const { error: transactionError } = await supabase
+        .from('minutes_transactions')
+        .delete()
+        .eq('campaign_id', savedCampaignId);
+
+      if (transactionError) {
+        console.error('Error deleting minutes transactions:', transactionError);
+      }
+
+      // Finally delete the campaign
+      const { error: campaignError } = await supabase
         .from('campaigns')
         .delete()
         .eq('id', savedCampaignId);
 
+      if (campaignError) {
+        throw campaignError;
+      }
+
       toast({
         title: "Campaign Discarded",
-        description: "The draft campaign has been deleted",
+        description: "The campaign and all related data have been deleted",
       });
 
       navigate('/dashboard');
@@ -199,7 +231,7 @@ export default function RunCampaign() {
       console.error('Error discarding campaign:', error);
       toast({
         title: "Error",
-        description: "Failed to discard campaign",
+        description: "Failed to discard campaign completely",
         variant: "destructive",
       });
     }
@@ -488,17 +520,58 @@ export default function RunCampaign() {
               </div>
 
               {contacts.length > 0 && (
-                <Card className="p-6 bg-success/5 border-success/20">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-success/20 rounded-full flex items-center justify-center">
-                      <Phone className="h-4 w-4 text-success" />
+                <div className="space-y-4">
+                  <Card className="p-6 bg-success/5 border-success/20">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-success/20 rounded-full flex items-center justify-center">
+                          <Phone className="h-4 w-4 text-success" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-success">{contacts.length} contacts ready</p>
+                          <p className="text-sm text-success/80">Estimated minutes: {estimatedMinutes} | Available: {availableMinutes}</p>
+                        </div>
+                      </div>
+                      {hasInsufficientMinutes && (
+                        <div className="text-red-600 text-sm font-medium">
+                          ⚠️ Insufficient minutes
+                        </div>
+                      )}
                     </div>
-                    <div>
-                      <p className="font-semibold text-success">{contacts.length} contacts ready</p>
-                      <p className="text-sm text-success/80">Your contacts have been loaded successfully</p>
+                  </Card>
+                  
+                  <Card className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-medium">Manage Selected Contacts</h4>
+                      <span className="text-sm text-muted-foreground">{contacts.length} selected</span>
                     </div>
-                  </div>
-                </Card>
+                    <div className="max-h-48 overflow-y-auto border rounded-lg">
+                      <div className="divide-y">
+                        {contacts.map((contact, index) => (
+                          <div key={contact.id} className="p-3 flex items-center justify-between hover:bg-muted/50">
+                            <div className="flex-1">
+                              <div className="font-medium">{contact.phone}</div>
+                              {contact.name && (
+                                <div className="text-sm text-muted-foreground">{contact.name}</div>
+                              )}
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                const newContacts = contacts.filter((_, i) => i !== index);
+                                setContacts(newContacts);
+                              }}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </Card>
+                </div>
               )}
             </div>
           )}
@@ -656,23 +729,34 @@ export default function RunCampaign() {
                     </p>
                   </div>
                 ) : (
-                  <Button 
-                    onClick={handleLaunchCampaign}
-                    className="w-full h-12 text-lg flex items-center justify-center gap-3"
-                    disabled={!selectedAgent || contacts.length === 0 || !campaignName || !savedCampaignId || isLaunching || hasInsufficientMinutes}
-                  >
-                    {isLaunching ? (
-                      <>
-                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                        Launching...
-                      </>
-                    ) : (
-                      <>
-                        <Play className="h-5 w-5" />
-                        Launch Campaign
-                      </>
-                    )}
-                  </Button>
+                  <div className="space-y-3">
+                    <Button 
+                      onClick={handleLaunchCampaign}
+                      className="w-full h-12 text-lg flex items-center justify-center gap-3"
+                      disabled={!selectedAgent || contacts.length === 0 || !campaignName || !savedCampaignId || isLaunching || hasInsufficientMinutes}
+                    >
+                      {isLaunching ? (
+                        <>
+                          <div className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                          Launching...
+                        </>
+                      ) : (
+                        <>
+                          <Play className="h-5 w-5" />
+                          Launch Campaign
+                        </>
+                      )}
+                    </Button>
+                    <Button 
+                      onClick={handleDiscardCampaign}
+                      variant="outline"
+                      className="w-full h-10 text-red-600 border-red-200 hover:bg-red-50"
+                      disabled={isLaunching}
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Discard Campaign
+                    </Button>
+                  </div>
                 )}
               </div>
             </div>

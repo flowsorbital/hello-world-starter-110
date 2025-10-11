@@ -69,18 +69,6 @@ serve(async (req) => {
       throw new Error(`Insufficient minutes. Need ${estimatedMinutes} minutes but only ${availableMinutes} available.`);
     }
 
-    // Deduct estimated minutes immediately to prevent double-spending
-    const { error: deductError } = await serviceRoleSupabase
-      .from('profiles')
-      .update({ available_minutes: availableMinutes - estimatedMinutes })
-      .eq('user_id', campaignData.user_id);
-
-    if (deductError) {
-      throw new Error(`Failed to deduct minutes: ${deductError.message}`);
-    }
-
-    console.log(`Deducted ${estimatedMinutes} minutes from user ${campaignData.user_id}. Remaining: ${availableMinutes - estimatedMinutes}`);
-
     console.log('Launching campaign with data:', {
       call_name: callName,
       agent_id: agentId,
@@ -133,11 +121,16 @@ serve(async (req) => {
                 contact.additional_fields[key] !== '') {
               // Avoid overwriting if already set from direct contact fields
               if (!dynamicVariables.hasOwnProperty(key)) {
-                dynamicVariables[key] = typeof contact.additional_fields[key] === 'string' ? 
-                  contact.additional_fields[key].trim() : contact.additional_fields[key];
+                // Convert all values to strings for ElevenLabs API
+                dynamicVariables[key] = String(contact.additional_fields[key]).trim();
               }
             }
           });
+        }
+        
+        // Remove the additional_fields object itself to prevent API errors
+        if (dynamicVariables.additional_fields) {
+          delete dynamicVariables.additional_fields;
         }
         
         // Build recipient according to correct API structure
@@ -185,6 +178,19 @@ serve(async (req) => {
 
     const result = await response.json();
     console.log('Campaign launched successfully:', result);
+
+    // Deduct minutes only after successful ElevenLabs API call
+    const { error: deductError } = await serviceRoleSupabase
+      .from('profiles')
+      .update({ available_minutes: availableMinutes - estimatedMinutes })
+      .eq('user_id', campaignData.user_id);
+
+    if (deductError) {
+      console.error('Failed to deduct minutes after successful launch:', deductError);
+      // Continue execution - campaign is already launched
+    } else {
+      console.log(`Deducted ${estimatedMinutes} minutes from user ${campaignData.user_id}. Remaining: ${availableMinutes - estimatedMinutes}`);
+    }
 
     // Update campaign status in database using the SERVICE_ROLE client
     const { error: updateError } = await serviceRoleSupabase
